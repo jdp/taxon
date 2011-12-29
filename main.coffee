@@ -1,11 +1,11 @@
-crypto = require "crypto"
-http = require "http"
+crypto  = require "crypto"
+http    = require "http"
 winston = require "winston"
 
-Store = require("./lib/store").Store
+Store  = require("./lib/store").Store
 Server = require("./lib/server").Server
 
-store = new Store
+store  = new Store
 logger = new (winston.Logger)({
   transports: [
     new (winston.transports.Console)({
@@ -23,7 +23,7 @@ shuffle = (o) ->
   `for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);`
   o
 
-ITEMS = 100
+ITEMS = 100000
 TAGS = ["common", "uncommon", "rare", "holographic", "fire", "water", "grass"]
 start = (new Date).getTime()
 for x in [1..ITEMS]
@@ -33,9 +33,9 @@ for x in [1..ITEMS]
 end = (new Date).getTime();
 logger.debug "indexed #{ITEMS} items in #{end - start}ms"
 
+query = {or: [{and: ["common", "fire"]}, {not: {or: ["rare", "grass"]}}]}
 for x in [1..3]
   start = (new Date).getTime()
-  query = {or: [{and: ["common", "fire"]}, {not: {or: ["rare", "grass"]}}]}
   results = store.fetch query
   end = (new Date).getTime()
   logger.debug "fetched #{results.length} items with #{JSON.stringify(query)} in #{end - start}ms"
