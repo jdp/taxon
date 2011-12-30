@@ -61,9 +61,9 @@ class Server
 
           # Add to the item collection
           @post().bind (req, res, params) ->
-            return res.send(409, {}, "id parameter missing") unless "id" of params
-            return res.send(409, {}, "data parameter missing") unless "data" of params
-            return res.send(409, {}, "tags parameter missing") unless "tags" of params
+            return res.send(400, {}, "id parameter missing") unless "id" of params
+            return res.send(400, {}, "data parameter missing") unless "data" of params
+            return res.send(400, {}, "tags parameter missing") unless "tags" of params
 
             store.store params.id, JSON.parse(params.data), params.tags
             res.send 201, {}, "ok"
