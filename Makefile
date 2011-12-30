@@ -3,13 +3,20 @@ COFFEE = coffee
 SRC = lib/store.coffee lib/server.coffee main.coffee
 OBJ = ${SRC:.coffee=.js}
 
-all: $(OBJ)
+# Stuff for compiling the PEG for simpler query language
+PEGJS = pegjs
+PEGSRC = lib/query_parser.pegjs
+
+all: $(OBJ) peg
 
 %.js: %.coffee
 	$(COFFEE) -c $<
 
-clean:
-	rm lib/*.js
-	rm *.js
+peg: $(PEGSRC)
+	$(PEGJS) $< 
 
-.PHONY: all clean
+clean:
+	-rm lib/*.js
+	-rm *.js
+
+.PHONY: all clean peg

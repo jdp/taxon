@@ -1,5 +1,6 @@
 http = require "http"
 journey = require "journey"
+queryparser = require "./query_parser"
 _ = require "underscore"
 uuid = require "uuid"
 
@@ -15,7 +16,8 @@ class Server
         body += chunk
       request.addListener "end", =>
         @router.handle request, body, (result) ->
-          result.headers["Server"] = "tagdb/0.0.0"
+          result.headers["Server"] = "taxondb/0.0.0"
+          result.headers["Connection"] = "close"
           response.writeHead result.status, result.headers
           response.end result.body
           logger.info "#{result.status} #{request.url}"
@@ -43,8 +45,13 @@ class Server
             headers = {}
             results = []
             if params.query
+              query = queryparser.parse(params.query)
               method = if params.shallow then "fetch" else "find"
-              results = store[method](JSON.parse(params.query))
+              try
+                results = store[method](query)
+              catch e
+                throw e if e.name != "QueryError"
+                return res.send 400, headers, {error: e.value}
             else
               method = if params.shallow then "keys" else "values"
               results = _[method](store.item_set)
@@ -71,6 +78,7 @@ class Server
                 res.send 404, {}, { error: "item not found" }
 
   start: (port) ->
+    @logger.info "started server on port #{port}"
     @server.listen port
 
 module.exports =

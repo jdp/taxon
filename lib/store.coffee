@@ -33,6 +33,14 @@ fastdifference = (set1, set2) ->
   return _.filter _.keys(set), (key) ->
     set[key] == 1
 
+class QueryError extends Error
+  constructor: (value) ->
+    @value = value
+    @name = "QueryError"
+
+  toString: ->
+    "#{@name}: #{@value}"
+
 class Store
   item_set: {}
   tag_set: {}
@@ -63,7 +71,10 @@ class Store
           @and_set[bucket] = [] unless bucket of @and_set
           @and_set[bucket].push id
 
-  and_fetch: (q1, q2) ->
+  and_fetch: () ->
+    args = Array.prototype.slice.call(arguments)
+    throw (new QueryError("and operation requires 2 arguments")) if args.length != 2
+    [q1, q2] = args
     if _.isString(q1) and _.isString(q2)
       if q1 == q2
         if q1 of @tag_set then @tag_set[q1].items else []
@@ -74,7 +85,10 @@ class Store
     else
       return fastintersection @fetch(q1), @fetch(q2)
 
-  or_fetch: (q1, q2) ->
+  or_fetch: () ->
+    args = Array.prototype.slice.call(arguments)
+    throw (new QueryError("or operation requires 2 arguments")) if args.length != 2
+    [q1, q2] = args
     if _.isString(q1) and _.isString(q2)
       if q1 == q2
         if q1 of @tag_set then @tag_set[q1].items else []
@@ -93,7 +107,10 @@ class Store
     else
       return fastunion @fetch(q1), @fetch(q2)
 
-  not_fetch: (q1) ->
+  not_fetch: () ->
+    args = Array.prototype.slice.call(arguments)
+    throw (new QueryError("not operation requires 1 argument")) if args.length != 1
+    [q1] = args
     if _.isString(q1)
       if q1 in _.keys(@tag_set)
         if @tag_set[q1].dirty.not
@@ -111,11 +128,11 @@ class Store
     if _.isString query
       @tag_set[query].items
     else if "and" of query
-      @and_fetch query.and[0], query.and[1]
+      @and_fetch.apply this, query.and
     else if "or" of query
-      @or_fetch query.or[0], query.or[1]
+      @or_fetch.apply this, query.or
     else if "not" of query
-      @not_fetch query.not
+      @not_fetch.apply this, query.not
     else
       []
 
@@ -123,4 +140,5 @@ class Store
     _.map @fetch(query), (result) => @item_set[result]
 
 module.exports =
+  QueryError: QueryError
   Store: Store
