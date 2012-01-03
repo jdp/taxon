@@ -1,0 +1,33 @@
+#!/usr/bin/env coffee
+
+crypto  = require "crypto"
+http    = require "http"
+
+Store  = require("../").Store
+
+store  = new Store
+
+md5 = (data) ->
+  crypto.createHash("md5").update(data).digest("hex")
+
+shuffle = (o) ->
+  `for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);`
+  o
+
+ITEMS = [1000, 10000, 100000]
+TAGS = ["common", "uncommon", "rare", "holographic", "fire", "water", "grass"]
+QUERY = {or: [{and: ["common", "fire"]}, {not: [{or: ["rare", "grass"]}]}]}
+for items in ITEMS
+  console.log "-- Testing with #{items} items"
+  start = (new Date).getTime()
+  for x in [1..items]
+    id = md5((Math.random() * x).toString())
+    tags = shuffle(TAGS).slice(0, Math.floor(Math.random() * TAGS.length))
+    store.store id, {}, tags
+  end = (new Date).getTime();
+  console.log "indexed #{items} items in #{end - start}ms"
+  for x in [1..3]
+    start = (new Date).getTime()
+    results = store.fetch QUERY
+    end = (new Date).getTime()
+    console.log "fetched #{results.length} items with #{JSON.stringify(QUERY)} in #{end - start}ms"

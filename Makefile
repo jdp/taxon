@@ -1,6 +1,6 @@
 .SUFFIXES: .coffee .js
 COFFEE = coffee
-SRC = lib/store.coffee lib/server.coffee main.coffee
+SRC = lib/store.coffee lib/server.coffee lib/index.coffee
 OBJ = ${SRC:.coffee=.js}
 
 # Stuff for compiling the PEG for simpler query language
@@ -10,13 +10,12 @@ PEGSRC = lib/query_parser.pegjs
 all: $(OBJ) peg
 
 %.js: %.coffee
-	$(COFFEE) -c $<
+	$(COFFEE) -cb $<
 
 peg: $(PEGSRC)
 	$(PEGJS) $< 
 
 clean:
 	-rm lib/*.js
-	-rm *.js
 
 .PHONY: all clean peg
