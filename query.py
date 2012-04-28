@@ -1,4 +1,14 @@
-__all__ = ['Query', 'Tag', 'And', 'Or', 'Not']
+__all__ = ['Query', 'Tag', 'And', 'Or', 'Not', 'sexpr']
+
+
+def sexpr(val):
+    "Returns the query dict as an S-expression."
+    if isinstance(val, dict):
+        return sexpr(val.items()[0])
+    elif isinstance(val, tuple):
+        return "(" + ' '.join([val[0]] + [sexpr(x) for x in sorted(val[1])]) + ")"
+    else:
+        return str(val)
 
 
 class Query(object):
@@ -23,7 +33,7 @@ class Query(object):
             return expr
 
     def freeze(self):
-        return [c.freeze() for c in self.children]
+        return {self.op: [c.freeze() for c in self.children]}
 
 
 class Tag(Query):
@@ -32,19 +42,17 @@ class Tag(Query):
 
 
 class And(Query):
+    op = "and"
+
     def __init__(self, *exprs):
         self.children = [Query.coerce(e) for e in exprs]
-
-    def freeze(self):
-        return {"and": [c.freeze() for c in self.children]}
 
 
 class Or(Query):
+    op = "or"
+
     def __init__(self, *exprs):
         self.children = [Query.coerce(e) for e in exprs]
-
-    def freeze(self):
-        return {"or": [c.freeze() for c in self.children]}
 
 
 class Not(Query):

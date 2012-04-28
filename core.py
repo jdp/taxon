@@ -1,83 +1,97 @@
 import hashlib
-from collections import namedtuple
+from functools import partial
 import redis
 import query
 
 
-def _tag_keys(tags):
-    return [("txn:tag:%s" % tag) for tag in tags]
-
-
-QueryResult = namedtuple('QueryResult', ('key', 'items'))
-
-
 class Store(object):
-    items_key = "txn:items"
-    tags_key = "txn:tags"
+    items_key = "items"
+    tags_key = "tags"
+    cache_key = "cache"
 
-    def __init__(self, r):
+    def __init__(self, r, key_prefix="txn"):
         self.r = r
+        self.key_prefix = key_prefix
+        self._tag_key = partial(self._make_key, "tag")
+        self._result_key = partial(self._make_key, "result")
+
+    def _make_key(self, *args):
+        return ':'.join([self.key_prefix] + list(args))
 
     def put(self, tag, items):
         "Store `items` in Taxon tagged with with `tag`."
+
         try:
-            it = iter(items)
+            _ = iter(items)
         except TypeError:
             items = [items]
         pipe = self.r.pipeline()
-        pipe.sadd(self.tags_key, tag)
-        pipe.sadd(self.items_key, *items)
-        pipe.sadd(_tag_keys([tag])[0], *items)
+        pipe.sadd(self._make_key(self.tags_key), tag)
+        pipe.sadd(self._make_key(self.items_key), *items)
+        pipe.sadd(self._tag_key(tag), *items)
         pipe.execute()
+        cached_keys = self.r.smembers(self._make_key(self.cache_key))
+        if len(cached_keys) > 0:
+            self.r.delete(*cached_keys)
+        return True
 
-    def raw_query(self, fn, args):
+    def _raw_query(self, fn, args):
         "Perform a raw query on the Taxon store."
 
-        h = hashlib.sha1(fn)
-        for arg in args:
-            h.update(str(arg))
-        keyname = "txn:result:%s" % h.hexdigest()
+        h = hashlib.sha1(query.sexpr({fn: args[:]}))
+        keyname = self._result_key(h.hexdigest())
+        if self.r.exists(keyname):
+            return (keyname, self.r.smembers(keyname))
 
         if fn == "tag":
             if len(args) == 1:
-                key = _tag_keys(args)[0]
-                items = self.r.smembers(key)
-                return QueryResult(key, items)
+                key = self._tag_key(args[0])
+                return (key, self.r.smembers(key))
             else:
-                keys = _tag_keys(args)
+                keys = [self._tag_key(k) for k in args]
                 self.r.sunionstore(keyname, *keys)
-                return QueryResult(keyname, self.r.smembers(keyname))
+                self.r.sadd(self._make_key(self.cache_key), keyname)
+                return (keyname, self.r.smembers(keyname))
         elif fn == "and":
-            items = [qr.key for qr in [self.raw_query(*a.popitem()) for a in args]]
-            self.r.sinterstore(keyname, *items)
-            return  QueryResult(keyname, self.r.smembers(keyname))
+            interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
+            self.r.sinterstore(keyname, *interkeys)
+            self.r.sadd(self._make_key(self.cache_key), keyname)
+            return  (keyname, self.r.smembers(keyname))
         elif fn == "or":
-            items = [qr.key for qr in [self.raw_query(*a.popitem()) for a in args]]
-            self.r.sunionstore(keyname, *items)
-            return QueryResult(keyname, self.r.smembers(keyname))
+            interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
+            self.r.sunionstore(keyname, *interkeys)
+            self.r.sadd(self._make_key(self.cache_key), keyname)
+            return (keyname, self.r.smembers(keyname))
         elif fn == "not":
-            items = [qr.key for qr in [self.raw_query(*a.popitem()) for a in args]]
-            self.r.sdiffstore(keyname, self.items_key, *items)
-            return QueryResult(keyname, self.r.smembers(keyname))
+            interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
+            self.r.sdiffstore(keyname, self._make_key(self.items_key), *interkeys)
+            self.r.sadd(self._make_key(self.cache_key), keyname)
+            return (keyname, self.r.smembers(keyname))
         else:
             raise SyntaxError("Unkown Taxon fn `%s'" % fn)
 
     def query(self, q):
         "Perform a query on the Taxon store."
+
         if isinstance(q, query.Query):
-            return self.raw_query(*q.freeze().popitem())
+            return self._raw_query(*q.freeze().items()[0])
         elif isinstance(q, dict):
-            return self.raw_query(*q.popitem())
+            return self._raw_query(*q.items()[0])
         else:
             raise TypeError("%s is not a recognized Taxon query" % q)
 
 if __name__ == '__main__':
     from query import *
+
     r = redis.Redis(db=9)
     s = Store(r)
     s.put('foo', ['a', 'b'])
     s.put('bar', ['c', 'a'])
     s.put('baz', 'a')
-    print s.query(Tag("foo") & ~Tag("baz")).items
-    print s.query(Or("foo", "bar")).items
-    print s.query({'or': [{'tag': ['foo']}, {'tag': ['bar']}]}).items
+
+    _, items = s.query(Tag("foo") & ~Tag("baz"))
+    print items
+    _, items = s.query(And(Not("baz"), "foo"))
+    print items
+    _, items = s.query({'and': [{'tag': ['foo']}, {'or': [{'tag': ['fuck']}, {'not': [{'tag': ['baz']}]}]}]})
+    print items
