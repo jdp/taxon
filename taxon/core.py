@@ -1,7 +1,6 @@
 import hashlib
 from functools import partial
-import redis
-import query
+from .query import Query, sexpr
 
 
 class Store(object):
@@ -38,7 +37,7 @@ class Store(object):
     def _raw_query(self, fn, args):
         "Perform a raw query on the Taxon store."
 
-        h = hashlib.sha1(query.sexpr({fn: args[:]}))
+        h = hashlib.sha1(sexpr({fn: args[:]}))
         keyname = self._result_key(h.hexdigest())
         if self.r.exists(keyname):
             return (keyname, self.r.smembers(keyname))
@@ -73,25 +72,15 @@ class Store(object):
     def query(self, q):
         "Perform a query on the Taxon store."
 
-        if isinstance(q, query.Query):
+        if isinstance(q, Query):
             return self._raw_query(*q.freeze().items()[0])
         elif isinstance(q, dict):
             return self._raw_query(*q.items()[0])
         else:
             raise TypeError("%s is not a recognized Taxon query" % q)
 
-if __name__ == '__main__':
-    from query import *
+    def tags(self):
+        return self.r.smembers(self._make_key(self.tags_key))
 
-    r = redis.Redis(db=9)
-    s = Store(r)
-    s.put('foo', ['a', 'b'])
-    s.put('bar', ['c', 'a'])
-    s.put('baz', 'a')
-
-    _, items = s.query(Tag("foo") & ~Tag("baz"))
-    print items
-    _, items = s.query(And(Not("baz"), "foo"))
-    print items
-    _, items = s.query({'and': [{'tag': ['foo']}, {'or': [{'tag': ['fuck']}, {'not': [{'tag': ['baz']}]}]}]})
-    print items
+    def items(self):
+        return self.r.smembers(self._make_key(self.items_key))
