@@ -1,5 +1,5 @@
 from redis import Redis
-from nose.tools import with_setup, eq_
+from nose.tools import with_setup, raises, eq_
 from .context import taxon
 from taxon.query import *
 
@@ -53,3 +53,8 @@ def not_query_test():
     t.put('bar', ['a', 'c'])
     _, items = t.query(Not('foo'))
     eq_(items, set(['c']))
+
+
+@raises(TypeError)
+def invalid_type_in_query_test():
+    t.query(Tag("foo") & 5)

@@ -27,10 +27,12 @@ class Query(object):
 
     @classmethod
     def coerce(self, expr):
-        if isinstance(expr, basestring):
+        if isinstance(expr, Query):
+            return expr
+        elif isinstance(expr, basestring):
             return Tag(expr)
         else:
-            return expr
+            raise TypeError("Expected %s or string, got %s" % (Query.__name__, expr))
 
     def freeze(self):
         return {self.op: [c.freeze() for c in self.children]}
