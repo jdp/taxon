@@ -16,10 +16,14 @@ Getting Started
 
 First install the taxon package with pip:
 
+::
+    
     $ pip install -U taxon
 
 Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects from [redis-py](https://github.com/andymccurdy/redis-py).
 
+::
+    
     import redis
     import taxon
 
@@ -27,11 +31,15 @@ Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects f
 
 To tag data, use the ``tag`` method on a ``taxon.Store`` object.
 
+::
+    
     store.tag('feature', ['issue-312', 'issue-199', 'issue-321'])
     store.tag('experimental', ['issue-199'])
 
 To get the items associated with the tag, you can provide the ``Store.query`` method with the name of the tag. The return value is a tuple of the key in which the result is stored, and the set of items in the result.
 
+::
+    
     key, items = store.query('feature')
 
 Querying
@@ -39,6 +47,8 @@ Querying
 
 Taxon allows the dataset to be queried with arbitrary expressions and supports ``And``, ``Or``, and ``Not`` operations. The query syntax is a small DSL implemented directly in Python.
 
+::
+    
     from taxon import Store
     from taxon.query import And, Or, Not
 
@@ -48,11 +58,15 @@ Taxon allows the dataset to be queried with arbitrary expressions and supports `
 
 Query expressions can also be arbitrarily complex.
 
+::
+    
     # get issue tracker items marked feature or bugfix, but not experimental
     _, items = store.query(And(Or('feature', 'bugfix'), Not('experimental')))
 
 There is an alternate query syntax available using the ``Tag`` member from ``taxon.query`` which uses operators instead of classes. The operators are ``&`` for ``And``, ``|`` for ``Or``, and ``~`` for ``Not``. The above query in operator syntax looks like this:
 
+::
+    
     from taxon.query import Tag
     _, items = t.query((Tag('feature') | Tag('bugfix')) & ~Tag('experimental'))
 
