@@ -20,7 +20,9 @@ First install the taxon package with pip:
     
     $ pip install -U taxon
 
-Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects from [redis-py](https://github.com/andymccurdy/redis-py).
+Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects from `redis-py`_.
+
+.. _redis-py: https://github.com/andymccurdy/redis-py
 
 ::
     
