@@ -4,6 +4,11 @@ from .query import Query, sexpr
 
 
 class Store(object):
+    """
+    A wrapper for Redis objects that allows data to be organized and queried
+    by tag.
+    """
+
     def __init__(self, r, key_prefix='txn'):
         self.r = r
         self.key_prefix = key_prefix
@@ -18,7 +23,6 @@ class Store(object):
 
     def tag(self, tag, items):
         "Store ``items`` in Taxon tagged with ``tag``"
-
         try:
             _ = iter(items)
         except TypeError:
@@ -35,7 +39,6 @@ class Store(object):
 
     def _raw_query(self, fn, args):
         "Perform a raw query on the Taxon store"
-
         h = hashlib.sha1(sexpr({fn: args[:]}))
         keyname = self.result_key(h.hexdigest())
         if self.r.exists(keyname):
@@ -70,7 +73,6 @@ class Store(object):
 
     def query(self, q):
         "Perform a query on the Taxon store"
-
         if isinstance(q, Query):
             return self._raw_query(*q.freeze().items()[0])
         elif isinstance(q, dict):
@@ -87,5 +89,4 @@ class Store(object):
         return self.r.smembers(self.items_key)
 
     def __getattr__(self, name):
-        print "gettin attr", name
         return getattr(self.r, name)
