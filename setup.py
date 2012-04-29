@@ -11,14 +11,14 @@ with open('LICENSE') as f:
     license = f.read()
 
 setupinfo = dict(
-    name='taxon',
+    name='redis-taxon',
     version=__version__,
     description='Redis-backed tagged data store',
     long_description=readme,
     author='Justin Poliey',
     author_email='justin@getglue.com',
     url='https://github.com/jdp/taxon',
-    keywords=['redis', 'key-value', 'store', 'tag'],
+    keywords=['redis', 'key-value', 'store', 'tag', 'taxonomy'],
     packages=find_packages(exclude=('tests', 'docs')),
     license=license,
     requires=['redis']
