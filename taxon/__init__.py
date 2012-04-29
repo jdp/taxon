@@ -2,6 +2,6 @@ from .core import Taxon
 
 __author__ = "Justin Poliey <justin@getglue.com>"
 __license__ = "MIT"
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 
 VERSION = tuple(map(int, __version__.split('.')))
