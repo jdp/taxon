@@ -1,4 +1,4 @@
-from .core import Store
+from .core import Taxon
 
 __author__ = "Justin Poliey <justin@getglue.com>"
 __license__ = "MIT"

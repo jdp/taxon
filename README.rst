@@ -29,20 +29,20 @@ Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects f
     import redis
     import taxon
 
-    store = taxon.Store(redis.Redis())
+    t = taxon.Taxon(redis.Redis())
 
-To tag data, use the ``tag`` method on a ``taxon.Store`` object.
+To tag data, use the ``tag`` method on a ``taxon.Taxon`` object.
 
 ::
     
-    store.tag('feature', ['issue-312', 'issue-199', 'issue-321'])
-    store.tag('experimental', ['issue-199'])
+    t.tag('feature', ['issue-312', 'issue-199', 'issue-321'])
+    t.tag('experimental', ['issue-199'])
 
 To get the items associated with the tag, you can provide the ``Store.query`` method with the name of the tag. The return value is a tuple of the key in which the result is stored, and the set of items in the result.
 
 ::
     
-    key, items = store.query('feature')
+    key, items = t.query('feature')
 
 Querying
 --------
@@ -51,19 +51,19 @@ Taxon allows the dataset to be queried with arbitrary expressions and supports `
 
 ::
     
-    from taxon import Store
+    from taxon import Taxon
     from taxon.query import And, Or, Not
 
     # get issue tracker items with no action required
-    store = Store(my_redis_object)
-    _, items = store.query(Or('invalid', 'closed', 'wontfix'))
+    t = Taxon(my_redis_object)
+    _, items = t.query(Or('invalid', 'closed', 'wontfix'))
 
 Query expressions can also be arbitrarily complex.
 
 ::
     
     # get issue tracker items marked feature or bugfix, but not experimental
-    _, items = store.query(And(Or('feature', 'bugfix'), Not('experimental')))
+    _, items = t.query(And(Or('feature', 'bugfix'), Not('experimental')))
 
 There is an alternate query syntax available using the ``Tag`` member from ``taxon.query`` which uses operators instead of classes. The operators are ``&`` for ``And``, ``|`` for ``Or``, and ``~`` for ``Not``. The above query in operator syntax looks like this:
 

@@ -3,7 +3,7 @@ from functools import partial
 from .query import Query, sexpr
 
 
-class Store(object):
+class Taxon(object):
     """
     A wrapper for Redis objects that allows data to be organized and queried
     by tag.
