@@ -1,21 +1,37 @@
-# Taxon
+-----
+Taxon
+-----
 
-Taxon is a tagged data store with persistence to a Redis backend. It allows you to build data sets with tags associated with data, and then provides an interface through which to query the dataset based on the tag relationships.
+Taxon is a tagged data store with persistence to a Redis backend. It allows you to organize and query Redis data sets with tags.
 
-## Features
+Features
+--------
 
-* Fully queryable with arbitrary `And`, `Or`, and `Not` expressions
-* Persisted to Redis
+- Fully queryable. Supports expressions using ``And``, ``Or``, and ``Not`` operations as well as direct tag lookup.
+- Persistent. Data is stored in Redis.
+- Integrated. Operations happen in application code, and query results surface information to smooth direct Redis access.
 
-## Getting Started
+Getting Started
+---------------
+
+First install the taxon package with pip:
+
+    $ pip install -U taxon
+
+Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects from [redis-py](https://github.com/andymccurdy/redis-py).
+
+    import redis
+    import taxon
+
+    store = taxon.Store(redis.Redis())
+
+Querying
+--------
 
 TODO
 
-## Querying
-
-TODO
-
-## MIT License
+MIT License
+-----------
 
 Copyright (c) 2012 Justin Poliey <justin@getglue.com>
 
