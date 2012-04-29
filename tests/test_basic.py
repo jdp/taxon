@@ -10,50 +10,50 @@ def setup():
     global t
     db = 9
     t = taxon.Store(Redis(db=db))
-    if len(t.r.keys('*') > 0):
+    if len(t.keys('*')) > 0:
         raise RuntimeError("Redis DB %d is not empty" % db)
 
 
 def teardown():
     global t
-    t.r.flushdb()
+    t.flushdb()
 
 
 @with_setup(teardown=teardown)
 def simple_add_test():
-    t.put('foo', 'a')
-    t.put('bar', ['b', 'c'])
+    t.tag('foo', 'a')
+    t.tag('bar', ['b', 'c'])
     eq_(t.tags(), set(['foo', 'bar']))
     eq_(t.items(), set(['a', 'b', 'c']))
 
 
 @with_setup(teardown=teardown)
 def tag_query_test():
-    t.put('foo', ['a', 'b', 'c'])
+    t.tag('foo', ['a', 'b', 'c'])
     _, items = t.query(Tag("foo"))
     eq_(items, set(['a', 'b', 'c']))
 
 
 @with_setup(teardown=teardown)
 def and_query_test():
-    t.put('foo', ['a', 'b'])
-    t.put('bar', ['a', 'c'])
+    t.tag('foo', ['a', 'b'])
+    t.tag('bar', ['a', 'c'])
     _, items = t.query(And('foo', 'bar'))
     eq_(items, set(['a']))
 
 
 @with_setup(teardown=teardown)
 def or_query_test():
-    t.put('foo', ['a', 'b'])
-    t.put('bar', ['a', 'c'])
+    t.tag('foo', ['a', 'b'])
+    t.tag('bar', ['a', 'c'])
     _, items = t.query(Or('foo', 'bar'))
     eq_(items, set(['a', 'b', 'c']))
 
 
 @with_setup(teardown=teardown)
 def not_query_test():
-    t.put('foo', ['a', 'b'])
-    t.put('bar', ['a', 'c'])
+    t.tag('foo', ['a', 'b'])
+    t.tag('bar', ['a', 'c'])
     _, items = t.query(Not('foo'))
     eq_(items, set(['c']))
 
