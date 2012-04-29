@@ -22,7 +22,7 @@ class Taxon(object):
         return ':'.join([self.key_prefix] + list(args))
 
     def tag(self, tag, items):
-        "Store ``items`` in Taxon tagged with ``tag``"
+        "Store ``items`` in Redis tagged with ``tag``"
         try:
             _ = iter(items)
         except TypeError:
@@ -38,7 +38,7 @@ class Taxon(object):
         return True
 
     def _raw_query(self, fn, args):
-        "Perform a raw query on the Taxon store"
+        "Perform a raw query on the Taxon instance"
         h = hashlib.sha1(sexpr({fn: args[:]}))
         keyname = self.result_key(h.hexdigest())
         if self.r.exists(keyname):
@@ -72,7 +72,7 @@ class Taxon(object):
             raise SyntaxError("Unkown Taxon operator '%s'" % fn)
 
     def query(self, q):
-        "Perform a query on the Taxon store"
+        "Perform a query on the Taxon instance"
         if isinstance(q, Query):
             return self._raw_query(*q.freeze().items()[0])
         elif isinstance(q, dict):
@@ -81,11 +81,11 @@ class Taxon(object):
             raise TypeError("%s is not a recognized Taxon query" % q)
 
     def tags(self):
-        "Return the set of all tags known to the store instance"
+        "Return the set of all tags known to the instance"
         return self.r.smembers(self.tags_key)
 
     def items(self):
-        "Return the set of all tagged items known to the store instance"
+        "Return the set of all tagged items known to the instance"
         return self.r.smembers(self.items_key)
 
     def __getattr__(self, name):
