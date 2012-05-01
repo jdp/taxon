@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Taxon by jdp</title>
+    
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Taxon</h1>
+        <p>Tagged data store, backed by Redis and interfaced with Python</p>
+        <p class="view"><a href="https://github.com/jdp/taxon">View the Project on GitHub <small>jdp/taxon</small></a></p>
+        <ul>
+          <li><a href="https://github.com/jdp/taxon/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/jdp/taxon/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/jdp/taxon">Fork On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>Taxon</h1>
+
+<p>Taxon is a tagged data store with persistence to a Redis backend. It allows you to organize and query Redis data sets with tags.</p>
+
+<h2>Features</h2>
+
+<ul>
+<li>Fully queryable. Supports expressions using <code>And</code>, <code>Or</code>, and <code>Not</code> operations as well as direct tag lookup.</li>
+<li>Persistent. Data is stored in Redis.</li>
+<li>Integrated. Taxon wraps <code>Redis</code> objects, and proxies Redis commands to Taxon through it.</li>
+</ul><h2>Getting Started</h2>
+
+<p>First install the taxon package with pip:</p>
+
+<pre><code>$ pip install -U redis-taxon
+</code></pre>
+
+<p>Then you can instantiate Taxon stores in your code that wrap <code>Redis</code> objects from <a href="https://github.com/andymccurdy/redis-py">redis-py</a>.</p>
+
+<pre><code>import redis
+import taxon
+
+t = taxon.Taxon(redis.Redis())
+</code></pre>
+
+<p>To tag data, use the <code>tag</code> method on a <code>taxon.Taxon</code> object.</p>
+
+<pre><code>t.tag('feature', ['issue-312', 'issue-199', 'issue-321'])
+t.tag('experimental', ['issue-199'])
+</code></pre>
+
+<p>To get the items associated with the tag, you can provide the <code>Store.query</code> method with the name of the tag. The return value is a tuple of the key in which the result is stored, and the set of items in the result.</p>
+
+<pre><code>key, items = t.query('feature')
+</code></pre>
+
+<h2>Querying</h2>
+
+<p>Taxon allows the dataset to be queried with arbitrary expressions and supports <code>And</code>, <code>Or</code>, and <code>Not</code> operations. The query syntax is a small DSL implemented directly in Python.</p>
+
+<pre><code>from taxon import Taxon
+from taxon.query import And, Or, Not
+
+# get issue tracker items with no action required
+t = Taxon(my_redis_object)
+_, items = t.query(Or('invalid', 'closed', 'wontfix'))
+</code></pre>
+
+<p>Query expressions can also be arbitrarily complex.</p>
+
+<pre><code># get issue tracker items marked feature or bugfix, but not experimental
+_, items = t.query(And(Or('feature', 'bugfix'), Not('experimental')))
+</code></pre>
+
+<p>There is an alternate query syntax available using the <code>Tag</code> member from <code>taxon.query</code> which uses operators instead of classes. The operators are <code>&amp;</code> for <code>And</code>, <code>|</code> for <code>Or</code>, and <code>~</code> for <code>Not</code>. The above query in operator syntax looks like this:</p>
+
+<pre><code>from taxon.query import Tag
+_, items = t.query((Tag('feature') | Tag('bugfix')) &amp; ~Tag('experimental'))
+</code></pre>
+
+<h2>MIT License</h2>
+
+<p>Copyright (c) 2012 Justin Poliey <a href="mailto:justin@getglue.com">justin@getglue.com</a></p>
+
+<p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>
+
+<p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>
+
+<p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/jdp">jdp</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
