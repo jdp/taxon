@@ -18,6 +18,9 @@ setupinfo = dict(
     url='https://github.com/jdp/taxon',
     keywords=['redis', 'key-value', 'store', 'tag', 'taxonomy'],
     packages=find_packages(exclude=('tests', 'docs')),
+    package_data={
+        '': ['*.rst']
+    },
     license=license,
     requires=['redis']
 )
