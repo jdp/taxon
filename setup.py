@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+import os
 from setuptools import setup, find_packages
 from taxon import __version__, __author_name__, __author_email__
 
-with open('README.rst') as f:
+with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as f:
     readme = f.read()
 
-with open('LICENSE') as f:
+with open(os.path.join(os.path.dirname(__file__), 'LICENSE')) as f:
     license = f.read()
 
 setupinfo = dict(
@@ -17,10 +18,8 @@ setupinfo = dict(
     author_email=__author_email__,
     url='https://github.com/jdp/taxon',
     keywords=['redis', 'key-value', 'store', 'tag', 'taxonomy'],
+    include_package_data=True,
     packages=find_packages(exclude=('tests', 'docs')),
-    package_data={
-        '': ['*.rst']
-    },
     license=license,
     requires=['redis']
 )
