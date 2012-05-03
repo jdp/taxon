@@ -42,7 +42,8 @@ To get the items associated with the tag, you can provide the ``Store.query`` me
 
 ::
     
-    key, items = t.query('feature')
+    from taxon.query import Tag
+    key, items = t.query(Tag('feature'))
 
 Querying
 --------
