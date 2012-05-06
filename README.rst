@@ -14,9 +14,7 @@ Features
 Getting Started
 ---------------
 
-First install the taxon package with pip:
-
-::
+First install the taxon package with pip::
     
     $ pip install -U redis-taxon
 
