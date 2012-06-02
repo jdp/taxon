@@ -10,7 +10,7 @@ def setup():
     global t
     db = 9
     t = taxon.Taxon(Redis(db=db))
-    if len(t.keys('*')) > 0:
+    if t.dbsize() > 0:
         raise RuntimeError("Redis DB %d is not empty" % db)
 
 
