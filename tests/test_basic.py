@@ -1,14 +1,14 @@
 from redis import Redis
-from nose.tools import with_setup, raises, eq_
+from nose.tools import with_setup, raises, eq_, ok_
 from .context import taxon
 from taxon.query import *
 
 t = None
+db = 9
 
 
 def setup():
-    global t
-    db = 9
+    global t, db
     t = taxon.Taxon(Redis(db=db))
     if t.redis.dbsize() > 0:
         raise RuntimeError("Redis DB %d is not empty" % db)
@@ -66,7 +66,7 @@ def remove_item_test():
     t.tag('baz', 'a')
     eq_(len(t.tags()), 3)
     eq_(len(t.items()), 1)
-    t.remove_item('a')
+    eq_(t.remove('a'), 1)
     eq_(len(t.tags()), 0)
     eq_(len(t.items()), 0)
 
@@ -105,3 +105,21 @@ def not_query_test():
 @raises(TypeError)
 def invalid_type_in_query_test():
     t.query(Tag("foo") & 5)
+
+
+@with_setup(teardown=teardown)
+def encoding_test():
+    import json
+
+    class JsonTaxon(taxon.Taxon):
+        def encode(self, data):
+            return json.dumps(data)
+
+        def decode(self, data):
+            return json.loads(data)
+
+    t = JsonTaxon(Redis(db=db), 'jtxn')
+    t.tag('foo', {'foo': 'bar'})
+    _, items = t.query(Tag('foo'))
+    eq_(len(items), 1)
+    ok_(isinstance(items[0], dict))

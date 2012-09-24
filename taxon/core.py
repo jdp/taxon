@@ -1,5 +1,6 @@
 import hashlib
 from functools import partial
+from itertools import imap
 from .query import Query, sexpr
 
 
@@ -39,7 +40,7 @@ class Taxon(object):
             for item in items:
                 pipe.zincrby(self.items_key, item, 1)
             pipe.execute()
-        return True
+        return items
 
     def untag(self, tag, *items):
         "Remove tag ``tag`` from items ``items``"
@@ -53,21 +54,28 @@ class Taxon(object):
                 pipe.zincrby(self.items_key, item, -1)
             pipe.execute()
         self._clear_cache()
-        return True
+        return items
 
-    def remove_item(self, item):
-        "Remove an item from the instance"
-        item = self.encode(item)
-        for tag in self.tags():
-            removed = self._r.srem(self.tag_key(tag), item)
-            if not removed:
+    def remove(self, *items):
+        "Remove items from the instance"
+        if not len(items):
+            return ValueError("must remove at least 1 item")
+        removed = 0
+        for item in imap(self.encode, items):
+            score = self._r.zscore(self.items_key, item)
+            if not score:
                 continue
-            with self._r.pipeline() as pipe:
-                pipe.zincrby(self.tags_key, tag, -1)
-                pipe.zincrby(self.items_key, item, -1)
-                pipe.execute()
+            for tag in self.tags():
+                srem_ok = self._r.srem(self.tag_key(tag), item)
+                if not srem_ok:
+                    continue
+                with self._r.pipeline() as pipe:
+                    pipe.zincrby(self.tags_key, tag, -1)
+                    pipe.zincrby(self.items_key, item, -1)
+                    pipe.execute()
+            removed += 1
         self._clear_cache()
-        return True
+        return removed
 
     def tags(self):
         "Return the set of all tags known to the instance"
