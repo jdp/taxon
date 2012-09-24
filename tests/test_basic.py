@@ -10,13 +10,13 @@ def setup():
     global t
     db = 9
     t = taxon.Taxon(Redis(db=db))
-    if t.dbsize() > 0:
+    if t.redis.dbsize() > 0:
         raise RuntimeError("Redis DB %d is not empty" % db)
 
 
 def teardown():
     global t
-    t.flushdb()
+    t.redis.flushdb()
 
 
 @with_setup(teardown=teardown)

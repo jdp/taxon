@@ -9,8 +9,8 @@ class Taxon(object):
     by tag.
     """
 
-    def __init__(self, r, key_prefix='txn', encode=str, decode=str):
-        self.r = r
+    def __init__(self, redis, key_prefix='txn', encode=str, decode=str):
+        self._r = redis
         make_key = partial(lambda *parts: ':'.join(parts), key_prefix)
         self.tag_key = partial(make_key, 'tag')
         self.result_key = partial(make_key, 'result')
@@ -20,16 +20,20 @@ class Taxon(object):
         self._encode = encode
         self._decode = decode
 
+    @property
+    def redis(self):
+        return self._r
+
     def tag(self, tag, items):
         "Store ``items`` in Redis tagged with ``tag``"
         try:
             iter(items)
         except TypeError:
             items = [items]
-        items = list(set(self._encode(item) for item in items) - self.r.smembers(self.tag_key(tag)))
+        items = list(set(self._encode(item) for item in items) - self._r.smembers(self.tag_key(tag)))
         if len(items) == 0:
             raise ValueError("either no items provided or all exist in tag")
-        with self.r.pipeline() as pipe:
+        with self._r.pipeline() as pipe:
             pipe.zincrby(self.tags_key, tag, len(items))
             pipe.sadd(self.tag_key(tag), *items)
             for item in items:
@@ -44,10 +48,10 @@ class Taxon(object):
             iter(items)
         except TypeError:
             items = [items]
-        items = list(set(self._encode(item) for item in items) & self.r.smembers(self.tag_key(tag)))
+        items = list(set(self._encode(item) for item in items) & self._r.smembers(self.tag_key(tag)))
         if len(items) == 0:
             raise ValueError("either no items provided or none exist in tag")
-        with self.r.pipeline() as pipe:
+        with self._r.pipeline() as pipe:
             pipe.zincrby(self.tags_key, tag, -len(items))
             pipe.srem(self.tag_key(tag), *items)
             for item in items:
@@ -60,10 +64,10 @@ class Taxon(object):
         "Remove an item from the instance"
         item = self._encode(item)
         for tag in self.tags():
-            removed = self.r.srem(self.tag_key(tag), item)
+            removed = self._r.srem(self.tag_key(tag), item)
             if not removed:
                 continue
-            with self.r.pipeline() as pipe:
+            with self._r.pipeline() as pipe:
                 pipe.zincrby(self.tags_key, tag, -1)
                 pipe.zincrby(self.items_key, item, -1)
                 pipe.execute()
@@ -72,11 +76,11 @@ class Taxon(object):
 
     def tags(self):
         "Return the set of all tags known to the instance"
-        return list(self.r.zrangebyscore(self.tags_key, 1, '+inf'))
+        return list(self._r.zrangebyscore(self.tags_key, 1, '+inf'))
 
     def items(self):
         "Return the set of all tagged items known to the instance"
-        return map(self._decode, self.r.zrangebyscore(self.items_key, 1, '+inf'))
+        return map(self._decode, self._r.zrangebyscore(self.items_key, 1, '+inf'))
 
     def query(self, q):
         "Perform a query on the Taxon instance"
@@ -95,44 +99,41 @@ class Taxon(object):
         "Perform a raw query on the Taxon instance"
         h = hashlib.sha1(sexpr({fn: args[:]}))
         keyname = self.result_key(h.hexdigest())
-        if self.r.exists(keyname):
-            return (keyname, map(self._decode, self.r.smembers(keyname)))
+        if self._r.exists(keyname):
+            return (keyname, map(self._decode, self._r.smembers(keyname)))
 
         if fn == 'tag':
             if len(args) == 1:
                 key = self.tag_key(args[0])
-                return (key, map(self._decode, self.r.smembers(key)))
+                return (key, map(self._decode, self._r.smembers(key)))
             else:
                 keys = [self.tag_key(k) for k in args]
-                self.r.sunionstore(keyname, *keys)
-                self.r.sadd(self.cache_key, keyname)
-                return (keyname, map(self._decode, self.r.smembers(keyname)))
+                self._r.sunionstore(keyname, *keys)
+                self._r.sadd(self.cache_key, keyname)
+                return (keyname, map(self._decode, self._r.smembers(keyname)))
         elif fn == 'and':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
-            self.r.sinterstore(keyname, *interkeys)
-            self.r.sadd(self.cache_key, keyname)
-            return (keyname, map(self._decode, self.r.smembers(keyname)))
+            self._r.sinterstore(keyname, *interkeys)
+            self._r.sadd(self.cache_key, keyname)
+            return (keyname, map(self._decode, self._r.smembers(keyname)))
         elif fn == 'or':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
-            self.r.sunionstore(keyname, *interkeys)
-            self.r.sadd(self.cache_key, keyname)
-            return (keyname, map(self._decode, self.r.smembers(keyname)))
+            self._r.sunionstore(keyname, *interkeys)
+            self._r.sadd(self.cache_key, keyname)
+            return (keyname, map(self._decode, self._r.smembers(keyname)))
         elif fn == 'not':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
             tags = self.tags()
             scratchpad_key = self.result_key('_')
-            self.r.sunionstore(scratchpad_key, *map(self.tag_key, tags))
-            self.r.sdiffstore(keyname, scratchpad_key, *interkeys)
-            self.r.sadd(self.cache_key, keyname)
-            return (keyname, map(self._decode, self.r.smembers(keyname)))
+            self._r.sunionstore(scratchpad_key, *map(self.tag_key, tags))
+            self._r.sdiffstore(keyname, scratchpad_key, *interkeys)
+            self._r.sadd(self.cache_key, keyname)
+            return (keyname, map(self._decode, self._r.smembers(keyname)))
         else:
             raise SyntaxError("Unkown Taxon operator '%s'" % fn)
 
     def _clear_cache(self):
-        cached_keys = self.r.smembers(self.cache_key)
+        cached_keys = self._r.smembers(self.cache_key)
         if len(cached_keys) > 0:
-            self.r.delete(*cached_keys)
+            self._r.delete(*cached_keys)
         return True
-
-    def __getattr__(self, name):
-        return getattr(self.r, name)
