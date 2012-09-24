@@ -110,6 +110,20 @@ class Taxon(object):
         "Return the set of all tagged items known to the instance"
         return map(self._decode, self.r.zrangebyscore(self.items_key, 1, '+inf'))
 
+    def remove_item(self, item):
+        "Remove an item from the instance"
+        item = self._encode(item)
+        for tag in self.tags():
+            removed = self.r.srem(self.tag_key(tag), item)
+            if not removed:
+                continue
+            with self.r.pipeline() as pipe:
+                pipe.zincrby(self.tags_key, tag, -1)
+                pipe.zincrby(self.items_key, item, -1)
+                pipe.execute()
+        self._clear_cache()
+        return True
+
     def _clear_cache(self):
         cached_keys = self.r.smembers(self.cache_key)
         if len(cached_keys) > 0:

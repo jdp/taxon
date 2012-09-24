@@ -44,6 +44,18 @@ def simple_remove_test():
 
 
 @with_setup(teardown=teardown)
+def remove_item_test():
+    t.tag('foo', 'a')
+    t.tag('bar', 'a')
+    t.tag('baz', 'a')
+    eq_(len(t.tags()), 3)
+    eq_(len(t.items()), 1)
+    t.remove_item('a')
+    eq_(len(t.tags()), 0)
+    eq_(len(t.items()), 0)
+
+
+@with_setup(teardown=teardown)
 def tag_query_test():
     t.tag('foo', ['a', 'b', 'c'])
     _, items = t.query(Tag("foo"))
