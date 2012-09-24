@@ -10,9 +10,10 @@ class Taxon(object):
     by tag.
     """
 
-    def __init__(self, redis, key_prefix='txn'):
+    def __init__(self, redis, name='txn'):
         self._r = redis
-        make_key = partial(lambda *parts: ':'.join(parts), key_prefix)
+        self._name = name
+        make_key = partial(lambda *parts: ':'.join(parts), self._name)
         self.tag_key = partial(make_key, 'tag')
         self.result_key = partial(make_key, 'result')
         self.items_key = make_key('items')
@@ -28,6 +29,10 @@ class Taxon(object):
     @property
     def redis(self):
         return self._r
+
+    @property
+    def name(self):
+        return self._name
 
     def tag(self, tag, *items):
         "Store ``items`` in Redis tagged with ``tag``"
