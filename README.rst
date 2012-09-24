@@ -7,9 +7,8 @@ Taxon is a tagged data store with persistence to a Redis backend. It allows you 
 Features
 --------
 
-- Fully queryable. Supports expressions using ``And``, ``Or``, and ``Not`` operations as well as direct tag lookup.
-- Persistent. Data is stored in Redis.
-- Integrated. Taxon wraps ``Redis`` objects, and proxies Redis commands to Taxon through it.
+- **Fully queryable.** Supports expressions using ``And``, ``Or``, and ``Not`` operations as well as direct tag lookup.
+- **Persistent.** Data is stored in Redis.
 
 Getting Started
 ---------------
@@ -31,24 +30,17 @@ Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects f
 
     t = taxon.Taxon(redis.Redis())
 
-To tag data, use the ``tag`` method on a ``taxon.Taxon`` object.
+To tag data, use the ``tag`` method on a ``taxon.Taxon`` object. The first argument is the tag to use, and the following variable arguments are the items to tag.
 
 ::
     
-    t.tag('feature', ['issue-312', 'issue-199', 'issue-321'])
-    t.tag('experimental', ['issue-199'])
-
-To get the items associated with the tag, you can provide the ``Store.query`` method with the name of the tag. The return value is a tuple of the key in which the result is stored, and the set of items in the result.
-
-::
-    
-    from taxon.query import Tag
-    key, items = t.query(Tag('feature'))
+    t.tag('feature', 'issue-312', 'issue-199', 'issue-321')
+    t.tag('experimental', 'issue-199')
 
 Querying
 --------
 
-Taxon allows the dataset to be queried with arbitrary expressions and supports ``And``, ``Or``, and ``Not`` operations. The query syntax is a small DSL implemented directly in Python.
+Taxon allows the dataset to be queried with arbitrary expressions and supports ``And``, ``Or``, and ``Not`` operations. The query syntax is a small DSL implemented directly in Python. Most queries are issued with the ``find`` method, which returns a `set` of items.
 
 ::
     
@@ -57,9 +49,9 @@ Taxon allows the dataset to be queried with arbitrary expressions and supports `
 
     # get issue tracker items with no action required
     t = Taxon(my_redis_object)
-    _, items = t.query(Or('invalid', 'closed', 'wontfix'))
+    items = t.find(Or('invalid', 'closed', 'wontfix'))
 
-Query expressions can also be arbitrarily complex.
+Query expressions can also be arbitrarily complex. Queries issued through the ``query`` method return both the name of the Redis key and a list of items.
 
 ::
     
@@ -71,7 +63,27 @@ There is an alternate query syntax available using the ``Tag`` member from ``tax
 ::
     
     from taxon.query import Tag
-    _, items = t.query((Tag('feature') | Tag('bugfix')) & ~Tag('experimental'))
+    items = t.find((Tag('feature') | Tag('bugfix')) & ~Tag('experimental'))
+
+Data Encoding
+-------------
+
+You can also interface better with Python data types by subclassing ``Taxon`` and providing ``encode`` and ``decode`` methods.
+
+::
+
+    import json
+    from redis import Redis
+    from taxon import Taxon
+    from taxon.query import Tag
+
+    class JsonTaxon(Taxon):
+        def encode(self, data): return json.dumps(data)
+        def decode(self, data): return json.loads(data)
+
+    t = JsonTaxon(Redis())
+    t.tag('foo', {'foo': 'bar'})
+    _, items = t.query(Tag('foo'))
 
 MIT License
 -----------
