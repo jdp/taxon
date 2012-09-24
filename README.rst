@@ -2,7 +2,7 @@
 Taxon
 -----
 
-Taxon is a tagged data store with persistence to a Redis backend. It allows you to organize and query Redis data sets with tags.
+Taxon is a tagged data store with persistence to a Redis backend. It allows you to organize and query Redis data sets with tags, and is implemented as a library instead of a stand-alone server.
 
 Features
 --------
