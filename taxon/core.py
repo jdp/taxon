@@ -56,6 +56,37 @@ class Taxon(object):
         self._clear_cache()
         return True
 
+    def remove_item(self, item):
+        "Remove an item from the instance"
+        item = self._encode(item)
+        for tag in self.tags():
+            removed = self.r.srem(self.tag_key(tag), item)
+            if not removed:
+                continue
+            with self.r.pipeline() as pipe:
+                pipe.zincrby(self.tags_key, tag, -1)
+                pipe.zincrby(self.items_key, item, -1)
+                pipe.execute()
+        self._clear_cache()
+        return True
+
+    def tags(self):
+        "Return the set of all tags known to the instance"
+        return list(self.r.zrangebyscore(self.tags_key, 1, '+inf'))
+
+    def items(self):
+        "Return the set of all tagged items known to the instance"
+        return map(self._decode, self.r.zrangebyscore(self.items_key, 1, '+inf'))
+
+    def query(self, q):
+        "Perform a query on the Taxon instance"
+        if isinstance(q, Query):
+            return self._raw_query(*q.freeze().items()[0])
+        elif isinstance(q, dict):
+            return self._raw_query(*q.items()[0])
+        else:
+            raise TypeError("%s is not a recognized Taxon query" % q)
+
     def _raw_query(self, fn, args):
         "Perform a raw query on the Taxon instance"
         h = hashlib.sha1(sexpr({fn: args[:]}))
@@ -92,37 +123,6 @@ class Taxon(object):
             return (keyname, map(self._decode, self.r.smembers(keyname)))
         else:
             raise SyntaxError("Unkown Taxon operator '%s'" % fn)
-
-    def query(self, q):
-        "Perform a query on the Taxon instance"
-        if isinstance(q, Query):
-            return self._raw_query(*q.freeze().items()[0])
-        elif isinstance(q, dict):
-            return self._raw_query(*q.items()[0])
-        else:
-            raise TypeError("%s is not a recognized Taxon query" % q)
-
-    def tags(self):
-        "Return the set of all tags known to the instance"
-        return list(self.r.zrangebyscore(self.tags_key, 1, '+inf'))
-
-    def items(self):
-        "Return the set of all tagged items known to the instance"
-        return map(self._decode, self.r.zrangebyscore(self.items_key, 1, '+inf'))
-
-    def remove_item(self, item):
-        "Remove an item from the instance"
-        item = self._encode(item)
-        for tag in self.tags():
-            removed = self.r.srem(self.tag_key(tag), item)
-            if not removed:
-                continue
-            with self.r.pipeline() as pipe:
-                pipe.zincrby(self.tags_key, tag, -1)
-                pipe.zincrby(self.items_key, item, -1)
-                pipe.execute()
-        self._clear_cache()
-        return True
 
     def _clear_cache(self):
         cached_keys = self.r.smembers(self.cache_key)
