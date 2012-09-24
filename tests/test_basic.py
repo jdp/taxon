@@ -23,15 +23,15 @@ def teardown():
 def simple_add_test():
     t.tag('foo', 'a')
     t.tag('bar', ['b', 'c'])
-    eq_(t.tags(), set(['foo', 'bar']))
-    eq_(t.items(), set(['a', 'b', 'c']))
+    eq_(t.tags(), ['foo', 'bar'])
+    eq_(set(t.items()), set(['a', 'b', 'c']))
 
 
 @with_setup(teardown=teardown)
 def tag_query_test():
     t.tag('foo', ['a', 'b', 'c'])
     _, items = t.query(Tag("foo"))
-    eq_(items, set(['a', 'b', 'c']))
+    eq_(set(items), set(['a', 'b', 'c']))
 
 
 @with_setup(teardown=teardown)
@@ -39,7 +39,7 @@ def and_query_test():
     t.tag('foo', ['a', 'b'])
     t.tag('bar', ['a', 'c'])
     _, items = t.query(And('foo', 'bar'))
-    eq_(items, set(['a']))
+    eq_(set(items), set(['a']))
 
 
 @with_setup(teardown=teardown)
@@ -47,7 +47,7 @@ def or_query_test():
     t.tag('foo', ['a', 'b'])
     t.tag('bar', ['a', 'c'])
     _, items = t.query(Or('foo', 'bar'))
-    eq_(items, set(['a', 'b', 'c']))
+    eq_(set(items), set(['a', 'b', 'c']))
 
 
 @with_setup(teardown=teardown)
@@ -55,7 +55,7 @@ def not_query_test():
     t.tag('foo', ['a', 'b'])
     t.tag('bar', ['a', 'c'])
     _, items = t.query(Not('foo'))
-    eq_(items, set(['c']))
+    eq_(set(items), set(['c']))
 
 
 @raises(TypeError)

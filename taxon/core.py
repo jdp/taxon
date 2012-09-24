@@ -9,17 +9,16 @@ class Taxon(object):
     by tag.
     """
 
-    def __init__(self, r, key_prefix='txn'):
+    def __init__(self, r, key_prefix='txn', encode=str, decode=str):
         self.r = r
-        self.key_prefix = key_prefix
-        self.tag_key = partial(self._make_key, 'tag')
-        self.result_key = partial(self._make_key, 'result')
-        self.items_key = self._make_key('items')
-        self.tags_key = self._make_key('tags')
-        self.cache_key = self._make_key('cache')
-
-    def _make_key(self, *args):
-        return ':'.join([self.key_prefix] + list(args))
+        make_key = partial(lambda *parts: ':'.join(parts), key_prefix)
+        self.tag_key = partial(make_key, 'tag')
+        self.result_key = partial(make_key, 'result')
+        self.items_key = make_key('items')
+        self.tags_key = make_key('tags')
+        self.cache_key = make_key('cache')
+        self._encode = encode
+        self._decode = decode
 
     def tag(self, tag, items):
         "Store ``items`` in Redis tagged with ``tag``"
@@ -27,11 +26,11 @@ class Taxon(object):
             _ = iter(items)
         except TypeError:
             items = [items]
-        pipe = self.r.pipeline()
-        pipe.sadd(self.tags_key, tag)
-        pipe.sadd(self.items_key, *items)
-        pipe.sadd(self.tag_key(tag), *items)
-        pipe.execute()
+        with self.r.pipeline() as pipe:
+            pipe.sadd(self.tags_key, tag)
+            pipe.sadd(self.items_key, *map(self._encode, items))
+            pipe.sadd(self.tag_key(tag), *map(self._encode, items))
+            pipe.execute()
         cached_keys = self.r.smembers(self.cache_key)
         if len(cached_keys) > 0:
             self.r.delete(*cached_keys)
@@ -42,32 +41,32 @@ class Taxon(object):
         h = hashlib.sha1(sexpr({fn: args[:]}))
         keyname = self.result_key(h.hexdigest())
         if self.r.exists(keyname):
-            return (keyname, self.r.smembers(keyname))
+            return (keyname, map(self._decode, self.r.smembers(keyname)))
 
         if fn == 'tag':
             if len(args) == 1:
                 key = self.tag_key(args[0])
-                return (key, self.r.smembers(key))
+                return (key, map(self._decode, self.r.smembers(key)))
             else:
                 keys = [self.tag_key(k) for k in args]
                 self.r.sunionstore(keyname, *keys)
                 self.r.sadd(self.cache_key, keyname)
-                return (keyname, self.r.smembers(keyname))
+                return (keyname, map(self._decode, self.r.smembers(keyname)))
         elif fn == 'and':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
             self.r.sinterstore(keyname, *interkeys)
             self.r.sadd(self.cache_key, keyname)
-            return (keyname, self.r.smembers(keyname))
+            return (keyname, map(self._decode, self.r.smembers(keyname)))
         elif fn == 'or':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
             self.r.sunionstore(keyname, *interkeys)
             self.r.sadd(self.cache_key, keyname)
-            return (keyname, self.r.smembers(keyname))
+            return (keyname, map(self._decode, self.r.smembers(keyname)))
         elif fn == 'not':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
             self.r.sdiffstore(keyname, self.items_key, *interkeys)
             self.r.sadd(self.cache_key, keyname)
-            return (keyname, self.r.smembers(keyname))
+            return (keyname, map(self._decode, self.r.smembers(keyname)))
         else:
             raise SyntaxError("Unkown Taxon operator '%s'" % fn)
 
@@ -82,11 +81,11 @@ class Taxon(object):
 
     def tags(self):
         "Return the set of all tags known to the instance"
-        return self.r.smembers(self.tags_key)
+        return list(self.r.smembers(self.tags_key))
 
     def items(self):
         "Return the set of all tagged items known to the instance"
-        return self.r.smembers(self.items_key)
+        return map(self._decode, self.r.smembers(self.items_key))
 
     def __getattr__(self, name):
         return getattr(self.r, name)
