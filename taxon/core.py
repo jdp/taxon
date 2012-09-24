@@ -23,17 +23,37 @@ class Taxon(object):
     def tag(self, tag, items):
         "Store ``items`` in Redis tagged with ``tag``"
         try:
-            _ = iter(items)
+            iter(items)
         except TypeError:
             items = [items]
+        items = list(set(self._encode(item) for item in items) - self.r.smembers(self.tag_key(tag)))
+        if len(items) == 0:
+            raise ValueError("either no items provided or all exist in tag")
         with self.r.pipeline() as pipe:
-            pipe.sadd(self.tags_key, tag)
-            pipe.sadd(self.items_key, *map(self._encode, items))
-            pipe.sadd(self.tag_key(tag), *map(self._encode, items))
+            pipe.zincrby(self.tags_key, tag, len(items))
+            pipe.sadd(self.tag_key(tag), *items)
+            for item in items:
+                pipe.zincrby(self.items_key, item, 1)
             pipe.execute()
-        cached_keys = self.r.smembers(self.cache_key)
-        if len(cached_keys) > 0:
-            self.r.delete(*cached_keys)
+        self._clear_cache()
+        return True
+
+    def untag(self, tag, items):
+        "Remove tag ``tag`` from items ``items``"
+        try:
+            iter(items)
+        except TypeError:
+            items = [items]
+        items = list(set(self._encode(item) for item in items) & self.r.smembers(self.tag_key(tag)))
+        if len(items) == 0:
+            raise ValueError("either no items provided or none exist in tag")
+        with self.r.pipeline() as pipe:
+            pipe.zincrby(self.tags_key, tag, -len(items))
+            pipe.srem(self.tag_key(tag), *items)
+            for item in items:
+                pipe.zincrby(self.items_key, item, -1)
+            pipe.execute()
+        self._clear_cache()
         return True
 
     def _raw_query(self, fn, args):
@@ -64,7 +84,10 @@ class Taxon(object):
             return (keyname, map(self._decode, self.r.smembers(keyname)))
         elif fn == 'not':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
-            self.r.sdiffstore(keyname, self.items_key, *interkeys)
+            tags = self.tags()
+            scratchpad_key = self.result_key('_')
+            self.r.sunionstore(scratchpad_key, *map(self.tag_key, tags))
+            self.r.sdiffstore(keyname, scratchpad_key, *interkeys)
             self.r.sadd(self.cache_key, keyname)
             return (keyname, map(self._decode, self.r.smembers(keyname)))
         else:
@@ -81,11 +104,17 @@ class Taxon(object):
 
     def tags(self):
         "Return the set of all tags known to the instance"
-        return list(self.r.smembers(self.tags_key))
+        return list(self.r.zrangebyscore(self.tags_key, 1, '+inf'))
 
     def items(self):
         "Return the set of all tagged items known to the instance"
-        return map(self._decode, self.r.smembers(self.items_key))
+        return map(self._decode, self.r.zrangebyscore(self.items_key, 1, '+inf'))
+
+    def _clear_cache(self):
+        cached_keys = self.r.smembers(self.cache_key)
+        if len(cached_keys) > 0:
+            self.r.delete(*cached_keys)
+        return True
 
     def __getattr__(self, name):
         return getattr(self.r, name)

@@ -23,8 +23,24 @@ def teardown():
 def simple_add_test():
     t.tag('foo', 'a')
     t.tag('bar', ['b', 'c'])
-    eq_(t.tags(), ['foo', 'bar'])
+    eq_(set(t.tags()), set(['foo', 'bar']))
     eq_(set(t.items()), set(['a', 'b', 'c']))
+
+
+@with_setup(teardown=teardown)
+def simple_remove_test():
+    t.tag('foo', 'a')
+    t.tag('bar', ['b', 'c'])
+    eq_(set(t.tags()), set(['foo', 'bar']))
+    eq_(set(t.items()), set(['a', 'b', 'c']))
+    t.untag('bar', 'b')
+    eq_(set(t.tags()), set(['foo', 'bar']))
+    _, items = t.query(Tag('bar'))
+    eq_(set(items), set(['c']))
+    t.untag('bar', 'c')
+    eq_(set(t.tags()), set(['foo']))
+    _, items = t.query(Tag('bar'))
+    eq_(set(items), set([]))
 
 
 @with_setup(teardown=teardown)
