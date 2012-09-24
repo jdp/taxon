@@ -1,0 +1,17 @@
+### Major Features
+
+* Support for encoding of items inside of the Taxon instance, for better
+  interfacing with JSON, Pickle, etc.
+
+* Ability to remove tags from items.
+
+* The `tag` (and `untag`) methods now take items from variable length args,
+  instead of checking if the second arg is an iterable or not.
+
+* Ability to remove entire items independent of tags.
+
+* Unrecognized methods no longer proxied to redis-py.
+
+### Minor Features
+
+* A `find` method as an alternative to `query`.
