@@ -9,7 +9,7 @@ class Taxon(object):
     by tag.
     """
 
-    def __init__(self, redis, key_prefix='txn', encode=str, decode=str):
+    def __init__(self, redis, key_prefix='txn'):
         self._r = redis
         make_key = partial(lambda *parts: ':'.join(parts), key_prefix)
         self.tag_key = partial(make_key, 'tag')
@@ -17,20 +17,20 @@ class Taxon(object):
         self.items_key = make_key('items')
         self.tags_key = make_key('tags')
         self.cache_key = make_key('cache')
-        self._encode = encode
-        self._decode = decode
+
+    def encode(self, data):
+        return str(data)
+
+    def decode(self, data):
+        return str(data)
 
     @property
     def redis(self):
         return self._r
 
-    def tag(self, tag, items):
+    def tag(self, tag, *items):
         "Store ``items`` in Redis tagged with ``tag``"
-        try:
-            iter(items)
-        except TypeError:
-            items = [items]
-        items = list(set(self._encode(item) for item in items) - self._r.smembers(self.tag_key(tag)))
+        items = list(set(self.encode(item) for item in items) - self._r.smembers(self.tag_key(tag)))
         if len(items) == 0:
             raise ValueError("either no items provided or all exist in tag")
         with self._r.pipeline() as pipe:
@@ -39,16 +39,11 @@ class Taxon(object):
             for item in items:
                 pipe.zincrby(self.items_key, item, 1)
             pipe.execute()
-        self._clear_cache()
         return True
 
-    def untag(self, tag, items):
+    def untag(self, tag, *items):
         "Remove tag ``tag`` from items ``items``"
-        try:
-            iter(items)
-        except TypeError:
-            items = [items]
-        items = list(set(self._encode(item) for item in items) & self._r.smembers(self.tag_key(tag)))
+        items = list(set(self.encode(item) for item in items) & self._r.smembers(self.tag_key(tag)))
         if len(items) == 0:
             raise ValueError("either no items provided or none exist in tag")
         with self._r.pipeline() as pipe:
@@ -62,7 +57,7 @@ class Taxon(object):
 
     def remove_item(self, item):
         "Remove an item from the instance"
-        item = self._encode(item)
+        item = self.encode(item)
         for tag in self.tags():
             removed = self._r.srem(self.tag_key(tag), item)
             if not removed:
@@ -80,7 +75,7 @@ class Taxon(object):
 
     def items(self):
         "Return the set of all tagged items known to the instance"
-        return map(self._decode, self._r.zrangebyscore(self.items_key, 1, '+inf'))
+        return map(self.decode, self._r.zrangebyscore(self.items_key, 1, '+inf'))
 
     def query(self, q):
         "Perform a query on the Taxon instance"
@@ -100,27 +95,27 @@ class Taxon(object):
         h = hashlib.sha1(sexpr({fn: args[:]}))
         keyname = self.result_key(h.hexdigest())
         if self._r.exists(keyname):
-            return (keyname, map(self._decode, self._r.smembers(keyname)))
+            return (keyname, map(self.decode, self._r.smembers(keyname)))
 
         if fn == 'tag':
             if len(args) == 1:
                 key = self.tag_key(args[0])
-                return (key, map(self._decode, self._r.smembers(key)))
+                return (key, map(self.decode, self._r.smembers(key)))
             else:
                 keys = [self.tag_key(k) for k in args]
                 self._r.sunionstore(keyname, *keys)
                 self._r.sadd(self.cache_key, keyname)
-                return (keyname, map(self._decode, self._r.smembers(keyname)))
+                return (keyname, map(self.decode, self._r.smembers(keyname)))
         elif fn == 'and':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
             self._r.sinterstore(keyname, *interkeys)
             self._r.sadd(self.cache_key, keyname)
-            return (keyname, map(self._decode, self._r.smembers(keyname)))
+            return (keyname, map(self.decode, self._r.smembers(keyname)))
         elif fn == 'or':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
             self._r.sunionstore(keyname, *interkeys)
             self._r.sadd(self.cache_key, keyname)
-            return (keyname, map(self._decode, self._r.smembers(keyname)))
+            return (keyname, map(self.decode, self._r.smembers(keyname)))
         elif fn == 'not':
             interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
             tags = self.tags()
@@ -128,7 +123,7 @@ class Taxon(object):
             self._r.sunionstore(scratchpad_key, *map(self.tag_key, tags))
             self._r.sdiffstore(keyname, scratchpad_key, *interkeys)
             self._r.sadd(self.cache_key, keyname)
-            return (keyname, map(self._decode, self._r.smembers(keyname)))
+            return (keyname, map(self.decode, self._r.smembers(keyname)))
         else:
             raise SyntaxError("Unkown Taxon operator '%s'" % fn)
 

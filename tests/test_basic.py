@@ -22,14 +22,23 @@ def teardown():
 @with_setup(teardown=teardown)
 def simple_add_test():
     t.tag('foo', 'a')
-    t.tag('bar', ['b', 'c'])
+    t.tag('bar', 'b')
+    t.tag('bar', 'c')
+    eq_(set(t.tags()), set(['foo', 'bar']))
+    eq_(set(t.items()), set(['a', 'b', 'c']))
+
+
+@with_setup(teardown=teardown)
+def complex_add_test():
+    t.tag('foo', 'a')
+    t.tag('bar', 'b', 'c')
     eq_(set(t.tags()), set(['foo', 'bar']))
     eq_(set(t.items()), set(['a', 'b', 'c']))
 
 
 @with_setup(teardown=teardown)
 def tag_query_test():
-    t.tag('foo', ['a', 'b', 'c'])
+    t.tag('foo', 'a', 'b', 'c')
     _, items = t.query(Tag("foo"))
     eq_(set(items), set(['a', 'b', 'c']))
 
@@ -37,7 +46,7 @@ def tag_query_test():
 @with_setup(teardown=teardown)
 def simple_remove_test():
     t.tag('foo', 'a')
-    t.tag('bar', ['b', 'c'])
+    t.tag('bar', 'b', 'c')
     eq_(set(t.tags()), set(['foo', 'bar']))
     eq_(set(t.items()), set(['a', 'b', 'c']))
     t.untag('bar', 'b')
@@ -64,31 +73,31 @@ def remove_item_test():
 
 @with_setup(teardown=teardown)
 def find_test():
-    t.tag('foo', ['a', 'b'])
+    t.tag('foo', 'a', 'b')
     results = t.find(Tag('foo'))
     eq_(results, set(['a', 'b']))
 
 
 @with_setup(teardown=teardown)
 def and_query_test():
-    t.tag('foo', ['a', 'b'])
-    t.tag('bar', ['a', 'c'])
+    t.tag('foo', 'a', 'b')
+    t.tag('bar', 'a', 'c')
     _, items = t.query(And('foo', 'bar'))
     eq_(set(items), set(['a']))
 
 
 @with_setup(teardown=teardown)
 def or_query_test():
-    t.tag('foo', ['a', 'b'])
-    t.tag('bar', ['a', 'c'])
+    t.tag('foo', 'a', 'b')
+    t.tag('bar', 'a', 'c')
     _, items = t.query(Or('foo', 'bar'))
     eq_(set(items), set(['a', 'b', 'c']))
 
 
 @with_setup(teardown=teardown)
 def not_query_test():
-    t.tag('foo', ['a', 'b'])
-    t.tag('bar', ['a', 'c'])
+    t.tag('foo', 'a', 'b')
+    t.tag('bar', 'a', 'c')
     _, items = t.query(Not('foo'))
     eq_(set(items), set(['c']))
 
