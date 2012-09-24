@@ -87,6 +87,10 @@ class Taxon(object):
         else:
             raise TypeError("%s is not a recognized Taxon query" % q)
 
+    def find(self, q):
+        _, items = self.query(q)
+        return set(items)
+
     def _raw_query(self, fn, args):
         "Perform a raw query on the Taxon instance"
         h = hashlib.sha1(sexpr({fn: args[:]}))

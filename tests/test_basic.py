@@ -28,6 +28,13 @@ def simple_add_test():
 
 
 @with_setup(teardown=teardown)
+def tag_query_test():
+    t.tag('foo', ['a', 'b', 'c'])
+    _, items = t.query(Tag("foo"))
+    eq_(set(items), set(['a', 'b', 'c']))
+
+
+@with_setup(teardown=teardown)
 def simple_remove_test():
     t.tag('foo', 'a')
     t.tag('bar', ['b', 'c'])
@@ -56,10 +63,10 @@ def remove_item_test():
 
 
 @with_setup(teardown=teardown)
-def tag_query_test():
-    t.tag('foo', ['a', 'b', 'c'])
-    _, items = t.query(Tag("foo"))
-    eq_(set(items), set(['a', 'b', 'c']))
+def find_test():
+    t.tag('foo', ['a', 'b'])
+    results = t.find(Tag('foo'))
+    eq_(results, set(['a', 'b']))
 
 
 @with_setup(teardown=teardown)
