@@ -1,6 +1,7 @@
 from redis import Redis
 from nose.tools import with_setup, raises, eq_, ok_
 from .context import taxon
+from taxon.backends import RedisBackend
 from taxon.query import *
 
 t = None
@@ -9,14 +10,14 @@ db = 9
 
 def setup():
     global t, db
-    t = taxon.Taxon(Redis(db=db))
-    if t.redis.dbsize() > 0:
+    t = taxon.Taxon(RedisBackend(Redis(db=db)))
+    if t._backend.redis.dbsize() > 0:
         raise RuntimeError("Redis DB %d is not empty" % db)
 
 
 def teardown():
     global t
-    t.redis.flushdb()
+    t._backend.redis.flushdb()
 
 
 @with_setup(teardown=teardown)
@@ -111,14 +112,14 @@ def invalid_type_in_query_test():
 def encoding_test():
     import json
 
-    class JsonTaxon(taxon.Taxon):
+    class JsonRedisBackend(RedisBackend):
         def encode(self, data):
             return json.dumps(data)
 
         def decode(self, data):
             return json.loads(data)
 
-    t = JsonTaxon(Redis(db=db), 'jtxn')
+    t = taxon.Taxon(JsonRedisBackend(Redis(db=db), 'jtxn'))
     t.tag('foo', {'foo': 'bar'})
     _, items = t.query(Tag('foo'))
     eq_(len(items), 1)
