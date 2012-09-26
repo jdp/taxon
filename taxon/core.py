@@ -42,3 +42,6 @@ class Taxon(object):
     def find(self, q):
         _, items = self.query(q)
         return set(items)
+
+    def empty(self):
+        return self._backend.empty()

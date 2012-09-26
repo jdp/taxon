@@ -1,4 +1,6 @@
 import hashlib
+import operator
+from collections import Counter
 from functools import partial
 from itertools import imap
 from .query import Query, sexpr
@@ -25,6 +27,88 @@ class Backend(object):
 
     def query(self, q):
         raise NotImplementedError
+
+    def empty(self):
+        raise NotImplementedError
+
+
+class MemoryBackend(Backend):
+    def __init__(self):
+        self.empty()
+
+    def tag_items(self, tag, *items):
+        if tag not in self.tags:
+            self.tags[tag] = 0
+            self.tagged[tag] = set()
+        new_items = set(items) - self.tagged[tag]
+        if len(new_items) == 0:
+            raise RuntimeError
+        self.tags[tag] += len(new_items)
+        self.tagged[tag].update(set(new_items))
+        self.items += Counter(new_items)
+        return new_items
+
+    def untag_items(self, tag, *items):
+        old_items = set(items) & self.tagged[tag]
+        if len(old_items) == 0:
+            raise RuntimeError
+        self.tags[tag] -= len(old_items)
+        self.tagged[tag] -= set(old_items)
+        self.items -= Counter(old_items)
+        return old_items
+
+    def remove_items(self, *items):
+        removed = []
+        for item in set(items):
+            if item not in self.items:
+                continue
+            for tag in self.all_tags():
+                if item not in self.tagged[tag]:
+                    continue
+                self.tagged[tag] -= set([item])
+                self.tags[tag] -= 1
+                self.items[item] -= 1
+            removed.append(item)
+        return removed
+
+    def all_tags(self):
+        return [tag[0] for tag in self.tags.items() if tag[1] > 0]
+
+    def all_items(self):
+        return [item[0] for item in self.items.items() if item[1] > 0]
+
+    def query(self, q):
+        if isinstance(q, Query):
+            return self._raw_query(*q.freeze().items()[0])
+        elif isinstance(q, dict):
+            return self._raw_query(*q.items()[0])
+        else:
+            raise RuntimeError
+
+    def _raw_query(self, fn, args):
+        if fn == 'tag':
+            if len(args) == 1:
+                return None, self.tagged.get(args[0], [])
+            else:
+                groups = [self.tagged.get(tag, []) for tag in args]
+                return None, reduce(operator.add, groups)
+        elif fn == 'and':
+            results = [set(items) for _, items in [self._raw_query(*a.items()[0]) for a in args]]
+            return None, reduce(operator.__and__, results)
+        elif fn == 'or':
+            results = [set(items) for _, items in [self._raw_query(*a.items()[0]) for a in args]]
+            return None, reduce(operator.__or__, results)
+        elif fn == 'not':
+            results = [set(items) for _, items in [self._raw_query(*a.items()[0]) for a in args]]
+            results.insert(0, set(self.all_items()))
+            return None, reduce(operator.sub, results)
+        else:
+            raise ValueError
+
+    def empty(self):
+        self.tagged = dict()
+        self.items = Counter()
+        self.tags = Counter()
 
 
 class RedisBackend(Backend):
@@ -80,7 +164,7 @@ class RedisBackend(Backend):
     def remove_items(self, *items):
         if not len(items):
             return ValueError("must remove at least 1 item")
-        removed = 0
+        removed = []
         for item in imap(self.encode, items):
             score = self._r.zscore(self.items_key, item)
             if not score:
@@ -93,7 +177,7 @@ class RedisBackend(Backend):
                     pipe.zincrby(self.tags_key, tag, -1)
                     pipe.zincrby(self.items_key, item, -1)
                     pipe.execute()
-            removed += 1
+            removed.append(self.decode(item))
         self._clear_cache()
         return removed
 
@@ -153,3 +237,6 @@ class RedisBackend(Backend):
         if len(cached_keys) > 0:
             self._r.delete(*cached_keys)
         return True
+
+    def empty(self):
+        self._r.flushdb()
