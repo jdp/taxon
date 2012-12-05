@@ -3,12 +3,12 @@ __all__ = ['Query', 'Tag', 'And', 'Or', 'Not']
 
 class Query(object):
     """
-    Taxon is queried by ``dict`` objects that represent the syntax tree of the
-    query. These dict queries can become unwieldy quickly, so the query DSL is
+    Taxon is queried by ``tuple`` objects that represent the syntax tree of the
+    query. These tuple queries can become unwieldy quickly, so the query DSL is
     provided as the main way to query Taxon.
 
     All subclasses of ``Query`` implement a ``freeze`` method which builds the
-    dict representation of the query.
+    tuple representation of the query.
     """
 
     def __init__(self, expr):
