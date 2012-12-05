@@ -1,9 +1,12 @@
 import hashlib
 import operator
+import pickle
+
 from collections import Counter
 from functools import partial
 from itertools import imap
-from .query import Query, sexpr
+
+from .query import Query
 
 
 class Backend(object):
@@ -79,11 +82,13 @@ class MemoryBackend(Backend):
 
     def query(self, q):
         if isinstance(q, Query):
-            return self._raw_query(*q.freeze().items()[0])
-        elif isinstance(q, dict):
-            return self._raw_query(*q.items()[0])
+            fn, args = q.freeze()
+            return self._raw_query(fn, args)
+        elif isinstance(q, tuple):
+            fn, args = q
+            return self._raw_query(fn, args)
         else:
-            raise RuntimeError
+            raise ValueError
 
     def _raw_query(self, fn, args):
         if fn == 'tag':
@@ -93,13 +98,13 @@ class MemoryBackend(Backend):
                 groups = [self.tagged.get(tag, []) for tag in args]
                 return None, reduce(operator.add, groups)
         elif fn == 'and':
-            results = [set(items) for _, items in [self._raw_query(*a.items()[0]) for a in args]]
+            results = [set(items) for _, items in [self._raw_query(*a) for a in args]]
             return None, reduce(operator.__and__, results)
         elif fn == 'or':
-            results = [set(items) for _, items in [self._raw_query(*a.items()[0]) for a in args]]
+            results = [set(items) for _, items in [self._raw_query(*a) for a in args]]
             return None, reduce(operator.__or__, results)
         elif fn == 'not':
-            results = [set(items) for _, items in [self._raw_query(*a.items()[0]) for a in args]]
+            results = [set(items) for _, items in [self._raw_query(*a) for a in args]]
             results.insert(0, set(self.all_items()))
             return None, reduce(operator.sub, results)
         else:
@@ -189,15 +194,17 @@ class RedisBackend(Backend):
 
     def query(self, q):
         if isinstance(q, Query):
-            return self._raw_query(*q.freeze().items()[0])
-        elif isinstance(q, dict):
-            return self._raw_query(*q.items()[0])
+            fn, args = q.freeze()
+            return self._raw_query(fn, args)
+        elif isinstance(q, tuple):
+            fn, args = q
+            return self._raw_query(fn, args)
         else:
             raise TypeError("%s is not a recognized Taxon query" % q)
 
     def _raw_query(self, fn, args):
         "Perform a raw query on the Taxon instance"
-        h = hashlib.sha1(sexpr({fn: args[:]}))
+        h = hashlib.sha1(pickle.dumps((fn, args)))
         keyname = self.result_key(h.hexdigest())
         if self._r.exists(keyname):
             return (keyname, map(self.decode, self._r.smembers(keyname)))
@@ -212,17 +219,17 @@ class RedisBackend(Backend):
                 self._r.sadd(self.cache_key, keyname)
                 return (keyname, map(self.decode, self._r.smembers(keyname)))
         elif fn == 'and':
-            interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
+            interkeys = [key for key, _ in [self._raw_query(*a) for a in args]]
             self._r.sinterstore(keyname, *interkeys)
             self._r.sadd(self.cache_key, keyname)
             return (keyname, map(self.decode, self._r.smembers(keyname)))
         elif fn == 'or':
-            interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
+            interkeys = [key for key, _ in [self._raw_query(*a) for a in args]]
             self._r.sunionstore(keyname, *interkeys)
             self._r.sadd(self.cache_key, keyname)
             return (keyname, map(self.decode, self._r.smembers(keyname)))
         elif fn == 'not':
-            interkeys = [key for key, _ in [self._raw_query(*a.items()[0]) for a in args]]
+            interkeys = [key for key, _ in [self._raw_query(*a) for a in args]]
             tags = self.all_tags()
             scratchpad_key = self.result_key('_')
             self._r.sunionstore(scratchpad_key, *map(self.tag_key, tags))
@@ -230,7 +237,7 @@ class RedisBackend(Backend):
             self._r.sadd(self.cache_key, keyname)
             return (keyname, map(self.decode, self._r.smembers(keyname)))
         else:
-            raise SyntaxError("Unkown Taxon operator '%s'" % fn)
+            raise ValueError("Unkown Taxon operator '%s'" % fn)
 
     def _clear_cache(self):
         cached_keys = self._r.smembers(self.cache_key)

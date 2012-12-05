@@ -1,14 +1,4 @@
-__all__ = ['Query', 'Tag', 'And', 'Or', 'Not', 'sexpr']
-
-
-def sexpr(val):
-    "Returns the query dict as an S-expression."
-    if isinstance(val, dict):
-        return sexpr(val.items()[0])
-    elif isinstance(val, tuple):
-        return "(" + ' '.join([val[0]] + [sexpr(x) for x in sorted(val[1])]) + ")"
-    else:
-        return str(val)
+__all__ = ['Query', 'Tag', 'And', 'Or', 'Not']
 
 
 class Query(object):
@@ -45,14 +35,14 @@ class Query(object):
             raise TypeError("Expected %s or string, got %s" % (Query.__name__, expr))
 
     def freeze(self):
-        "Returns the ``dict`` representation of the query expression."
-        return {self.op: [c.freeze() for c in self.children]}
+        "Returns a hashable representation of the query expression."
+        return (self.op, tuple(c.freeze() for c in self.children))
 
 
 class Tag(Query):
     "Returns the items with the specified tag."
     def freeze(self):
-        return {"tag": [self.expr]}
+        return ("tag", [self.expr])
 
 
 class And(Query):
@@ -75,9 +65,9 @@ class Or(Query):
 
 class Not(Query):
     "Returns the items **not** matched by any of the ``Query`` expressions."
-    
+
     def __init__(self, expr):
         self.expr = Query.coerce(expr)
 
     def freeze(self):
-        return {"not": [self.expr.freeze()]}
+        return ("not", tuple([self.expr.freeze()]))
