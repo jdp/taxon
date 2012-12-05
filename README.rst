@@ -28,7 +28,7 @@ Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects f
     import redis
     import taxon
 
-    t = taxon.Taxon(redis.Redis())
+    t = taxon.Taxon(taxon.backends.RedisBackend(redis.Redis()))
 
 To tag data, use the ``tag`` method on a ``taxon.Taxon`` object. The first argument is the tag to use, and the following variable arguments are the items to tag.
 
@@ -45,10 +45,11 @@ Taxon allows the dataset to be queried with arbitrary expressions and supports `
 ::
     
     from taxon import Taxon
+    from taxon.backends import RedisBackend
     from taxon.query import And, Or, Not
 
     # get issue tracker items with no action required
-    t = Taxon(my_redis_object)
+    t = Taxon(RedisBackend(my_redis_object))
     items = t.find(Or('invalid', 'closed', 'wontfix'))
 
 Query expressions can also be arbitrarily complex. Queries issued through the ``query`` method return both the name of the Redis key and a list of items.
@@ -75,13 +76,17 @@ You can also interface better with Python data types by subclassing ``Taxon`` an
     import json
     from redis import Redis
     from taxon import Taxon
+    from taxon.backends import RedisBackend
     from taxon.query import Tag
 
-    class JsonTaxon(Taxon):
-        def encode(self, data): return json.dumps(data)
-        def decode(self, data): return json.loads(data)
+    class JsonRedisBackend(RedisBackend):
+        def encode(self, data):
+            return json.dumps(data)
 
-    t = JsonTaxon(Redis())
+        def decode(self, data):
+            return json.loads(data)
+
+    t = Taxon(JsonRedisBackend(Redis()))
     t.tag('foo', {'foo': 'bar'})
     _, items = t.query(Tag('foo'))
 
