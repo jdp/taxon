@@ -1,4 +1,6 @@
-from .backends import Backend
+from urlparse import urlparse
+
+from .backends import Backend, MemoryBackend, RedisBackend
 from .query import Query
 
 
@@ -12,6 +14,10 @@ class Taxon(object):
         if not isinstance(backend, Backend):
             raise ValueError("%s is not a valid backend" % backend)
         self._backend = backend
+
+    @property
+    def backend(self):
+        return self._backend
 
     def tag(self, tag, *items):
         "Add tag to items"
@@ -45,3 +51,30 @@ class Taxon(object):
 
     def empty(self):
         return self._backend.empty()
+
+
+class MemoryTaxon(Taxon):
+    def __init__(self):
+        super(MemoryTaxon, self).__init__(MemoryBackend())
+
+
+class RedisTaxon(Taxon):
+    def __init__(self, dsn='redis://localhost', name='txn'):
+        r = self._redis_from_dsn(dsn)
+        super(RedisTaxon, self).__init__(RedisBackend(r, name))
+
+    def _redis_from_dsn(self, dsn):
+        import redis
+        parts = urlparse(dsn)
+        _, _, netloc = parts.netloc.partition('@')
+        netloc = netloc.split(':')
+        host = netloc[0]
+        try:
+            port = int(netloc[1])
+        except IndexError:
+            port = 6379
+        try:
+            db = int(parts.path.strip('/'))
+        except ValueError:
+            db = 0
+        return redis.Redis(host=host, port=port, db=db)

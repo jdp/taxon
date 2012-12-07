@@ -29,9 +29,9 @@ Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects f
     import redis
     import taxon
 
-    t = taxon.Taxon(taxon.backends.RedisBackend(redis.Redis()))
+    t = taxon.RedisTaxon()
 
-To tag data, use the ``tag`` method on a ``taxon.Taxon`` object.
+To tag data, use the ``tag`` method on any ``taxon.Taxon`` object.
 The first argument is the tag to use, and the following variable arguments are the items to tag.
 
 ::
@@ -48,12 +48,12 @@ Most queries are issued with the ``find`` method, which returns a `set` of items
 
 ::
     
-    from taxon import Taxon
+    from taxon import RedisTaxon
     from taxon.backends import RedisBackend
     from taxon.query import And, Or, Not
 
     # get issue tracker items with no action required
-    t = Taxon(RedisBackend(my_redis_object))
+    t = RedisTaxon()
     items = t.find(Or('invalid', 'closed', 'wontfix'))
 
 Query expressions can also be arbitrarily complex.
@@ -72,30 +72,6 @@ The above query in operator syntax looks like this:
     
     from taxon.query import Tag
     items = t.find((Tag('feature') | Tag('bugfix')) & ~Tag('experimental'))
-
-Data Encoding
--------------
-
-You can also interface better with Python data types by subclassing ``Taxon`` and providing ``encode`` and ``decode`` methods.
-
-::
-
-    import json
-    from redis import Redis
-    from taxon import Taxon
-    from taxon.backends import RedisBackend
-    from taxon.query import Tag
-
-    class JsonRedisBackend(RedisBackend):
-        def encode(self, data):
-            return json.dumps(data)
-
-        def decode(self, data):
-            return json.loads(data)
-
-    t = Taxon(JsonRedisBackend(Redis()))
-    t.tag('foo', {'foo': 'bar'})
-    _, items = t.query(Tag('foo'))
 
 MIT License
 -----------

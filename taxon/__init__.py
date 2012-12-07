@@ -1,4 +1,4 @@
-from .core import Taxon
+from .core import *
 
 __author_name__ = "Justin Poliey"
 __author_email__ = "justin@getglue.com"
