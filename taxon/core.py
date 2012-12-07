@@ -35,7 +35,7 @@ class Taxon(object):
 
     def query(self, q):
         "Perform a query and return the results and metadata"
-        if not isinstance(q, (dict, Query)):
+        if not isinstance(q, (tuple, Query)):
             raise ValueError("%s is not a valid query" % q)
         return self._backend.query(q)
 
