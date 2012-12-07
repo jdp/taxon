@@ -2,29 +2,23 @@
 Taxon
 -----
 
-Taxon is a tagged data store with persistence to a Redis backend.
-It allows you to organize and query Redis data sets with tags, and is implemented as a library instead of a stand-alone server.
+Taxon is a package that provides storage and query capabilities to data organized by tags.
+It supports both in-process and Redis-backed storage options out of the box.
 
 Features
 --------
 
 - **Fully queryable.** Supports expressions using ``And``, ``Or``, and ``Not`` operations as well as direct tag lookup.
-- **Persistent.** Data is stored in Redis.
+- **Versatile.** Data sets can be kept in-process, or stored in Redis or any other engine through drop-in backends.
 
 Getting Started
 ---------------
 
-First install the taxon package with pip:
-
-::
+First install the taxon package with pip::
     
     $ pip install -U redis-taxon
 
-Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects from `redis-py`_.
-
-.. _redis-py: https://github.com/andymccurdy/redis-py
-
-::
+Then you can start tagging and querying your data::
     
     import redis
     import taxon
@@ -49,7 +43,6 @@ Most queries are issued with the ``find`` method, which returns a `set` of items
 ::
     
     from taxon import RedisTaxon
-    from taxon.backends import RedisBackend
     from taxon.query import And, Or, Not
 
     # get issue tracker items with no action required
@@ -66,12 +59,39 @@ Queries issued through the ``query`` method return both the name of the Redis ke
 
 There is an alternate query syntax available using the ``Tag`` member from ``taxon.query`` which uses operators instead of classes.
 The operators are ``&`` for ``And``, ``|`` for ``Or``, and ``~`` for ``Not``.
-The above query in operator syntax looks like this:
-
-::
+The above query in operator syntax looks like this::
     
     from taxon.query import Tag
     items = t.find((Tag('feature') | Tag('bugfix')) & ~Tag('experimental'))
+
+Backends
+--------
+
+By implementing drop-in backends, there is greater flexibility in where data is stored.
+Any object that implements the methods of ``taxon.backends.Backend`` is a valid backend.
+A backend is used by providing it as the first argument to a ``Taxon`` constructor::
+
+    from taxon import Taxon
+    from taxon.backends import MemoryBackend
+    t = Taxon(MemoryBackend())
+
+.. _Redis: http://redis.io
+.. _redis-py: https://github.com/andymccurdy/redis-py
+
+The ``MemoryBackend`` is the in-process storage option.
+When your program ends, the data is lost.
+The bundled persistence option is the `Redis`_ backend, which accepts ``Redis`` instances from `redis-py`_::
+
+    from redis import Redis
+    from taxon import Taxon
+    from taxon.backends import RedisBackend
+    t = Taxon(RedisBackend(Redis()), 'blog-posts')
+
+You usually will not need to create Taxon instances like this though. There are convenience classes for using the memory and Redis backends::
+
+    from taxon import MemoryTaxon, RedisTaxon
+    mt = MemoryTaxon()
+    rt = RedisTaxon('redis://localhost:6379/0', 'blog-posts')
 
 MIT License
 -----------
