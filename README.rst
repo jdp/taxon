@@ -2,7 +2,8 @@
 Taxon
 -----
 
-Taxon is a tagged data store with persistence to a Redis backend. It allows you to organize and query Redis data sets with tags, and is implemented as a library instead of a stand-alone server.
+Taxon is a tagged data store with persistence to a Redis backend.
+It allows you to organize and query Redis data sets with tags, and is implemented as a library instead of a stand-alone server.
 
 Features
 --------
@@ -30,7 +31,8 @@ Then you can instantiate Taxon stores in your code that wrap ``Redis`` objects f
 
     t = taxon.Taxon(taxon.backends.RedisBackend(redis.Redis()))
 
-To tag data, use the ``tag`` method on a ``taxon.Taxon`` object. The first argument is the tag to use, and the following variable arguments are the items to tag.
+To tag data, use the ``tag`` method on a ``taxon.Taxon`` object.
+The first argument is the tag to use, and the following variable arguments are the items to tag.
 
 ::
     
@@ -40,7 +42,9 @@ To tag data, use the ``tag`` method on a ``taxon.Taxon`` object. The first argum
 Querying
 --------
 
-Taxon allows the dataset to be queried with arbitrary expressions and supports ``And``, ``Or``, and ``Not`` operations. The query syntax is a small DSL implemented directly in Python. Most queries are issued with the ``find`` method, which returns a `set` of items.
+Taxon allows the dataset to be queried with arbitrary expressions and supports ``And``, ``Or``, and ``Not`` operations.
+The query syntax is a small DSL implemented directly in Python.
+Most queries are issued with the ``find`` method, which returns a `set` of items.
 
 ::
     
@@ -52,14 +56,17 @@ Taxon allows the dataset to be queried with arbitrary expressions and supports `
     t = Taxon(RedisBackend(my_redis_object))
     items = t.find(Or('invalid', 'closed', 'wontfix'))
 
-Query expressions can also be arbitrarily complex. Queries issued through the ``query`` method return both the name of the Redis key and a list of items.
+Query expressions can also be arbitrarily complex.
+Queries issued through the ``query`` method return both the name of the Redis key and a list of items.
 
 ::
     
     # get issue tracker items marked feature or bugfix, but not experimental
     _, items = t.query(And(Or('feature', 'bugfix'), Not('experimental')))
 
-There is an alternate query syntax available using the ``Tag`` member from ``taxon.query`` which uses operators instead of classes. The operators are ``&`` for ``And``, ``|`` for ``Or``, and ``~`` for ``Not``. The above query in operator syntax looks like this:
+There is an alternate query syntax available using the ``Tag`` member from ``taxon.query`` which uses operators instead of classes.
+The operators are ``&`` for ``And``, ``|`` for ``Or``, and ``~`` for ``Not``.
+The above query in operator syntax looks like this:
 
 ::
     
