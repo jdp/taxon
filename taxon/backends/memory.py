@@ -84,3 +84,9 @@ class MemoryBackend(Backend):
         self.tagged = dict()
         self.items = Counter()
         self.tags = Counter()
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+
+    def __unicode__(self):
+        return u"%s()" % (self.__class__.__name__)

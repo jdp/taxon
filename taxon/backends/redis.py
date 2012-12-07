@@ -6,7 +6,6 @@ except:
 
 from functools import partial
 from itertools import imap
-from urlparse import urlparse
 
 from .backend import Backend
 from ..query import Query
@@ -143,3 +142,9 @@ class RedisBackend(Backend):
 
     def empty(self):
         self._r.flushdb()
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+
+    def __unicode__(self):
+        return u"%s(%r, %r)" % (self.__class__.__name__, self.redis, self.name)
