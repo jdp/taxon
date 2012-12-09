@@ -1,147 +1,92 @@
 from functools import partial
 from nose.tools import raises, eq_, ok_
-from .context import taxon
+from .context import taxon, benchmark
 from taxon import MemoryTaxon, RedisTaxon
 from taxon.query import *
 
 TestRedisTaxon = partial(RedisTaxon, 'redis://localhost:6379/9', 'test')
 
 
-def setup():
-    t = TestRedisTaxon()
-    if t.backend.redis.dbsize() > 0:
-        raise RuntimeError("Redis DB is not empty")
+class _TestBasics(object):
+    def __init__(self, taxon_cls):
+        self.taxon_cls = taxon_cls
+
+    def setup(self):
+        self.t = self.taxon_cls()
+
+    def teardown(self):
+        self.t.empty()
+
+    def test_one_item_tag(self):
+        tagged = self.t.tag('foo', 'a')
+        eq_(tagged, ['a'])
+
+    def test_many_item_tag(self):
+        tagged = self.t.tag('foo', 'a', 'b', 'c')
+        eq_(set(tagged), set(['a', 'b', 'c']))
+
+    def test_existing_tag(self):
+        tagged = self.t.tag('bar', 'x')
+        eq_(tagged, ['x'])
+        tagged = self.t.tag('bar', 'x', 'y')
+        eq_(tagged, ['y'])
+        tagged = self.t.tag('bar', 'x')
+        eq_(tagged, [])
+
+    def test_all_tags(self):
+        self.t.tag('foo', 'x', 'y')
+        self.t.tag('bar', 'y', 'z')
+        eq_(set(self.t.tags()), set(['foo', 'bar']))
+
+    def test_all_items(self):
+        self.t.tag('foo', 'x', 'y')
+        self.t.tag('bar', 'y', 'z')
+        eq_(set(self.t.items()), set(['x', 'y', 'z']))
+
+    def test_remove_tag(self):
+        self.t.tag('bar', 'x', 'y')
+        untagged = self.t.untag('bar', 'x')
+        eq_(untagged, ['x'])
+        untagged = self.t.untag('bar', 'x')
+        eq_(untagged, [])
+
+    def test_remove_item(self):
+        self.t.tag('bar', 'x', 'y')
+        self.t.tag('foo', 'x', 'z')
+        removed = self.t.remove('x')
+        eq_(removed, ['x'])
+        removed = self.t.remove('y')
+        eq_(removed, ['y'])
+        removed = self.t.remove('w')
+        eq_(removed, [])
+
+    def test_item_tag_sync(self):
+        self.t.tag('bar', 'x', 'y')
+        self.t.tag('foo', 'x', 'z')
+        removed = self.t.remove('x')
+        eq_(removed, ['x'])
+        removed = self.t.remove('y')
+        eq_(removed, ['y'])
+        removed = self.t.remove('w')
+        eq_(removed, [])
+        eq_(self.t.tags(), ['foo'])
+        eq_(self.t.items(), ['z'])
 
 
-def teardown():
-    t = TestRedisTaxon()
-    t.backend.redis.flushdb()
+class TestMemoryBasics(_TestBasics):
+    def __init__(self):
+        super(TestMemoryBasics, self).__init__(MemoryTaxon)
 
 
-def simple_add_test():
-    def func(t):
-        t.tag('foo', 'a')
-        t.tag('bar', 'b')
-        t.tag('bar', 'c')
-        eq_(set(t.tags()), set(['foo', 'bar']))
-        eq_(set(t.items()), set(['a', 'b', 'c']))
-        t.empty()
+class TestRedisBasics(_TestBasics):
+    def __init__(self):
+        super(TestRedisBasics, self).__init__(TestRedisTaxon)
 
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
+    def setup(self):
+        super(TestRedisBasics, self).setup()
+        if self.t.backend.redis.dbsize() > 0:
+            raise RuntimeError("Redis database is not empty")
 
-
-def complex_add_test():
-    def func(t):
-        t.tag('foo', 'a')
-        t.tag('bar', 'b', 'c')
-        eq_(set(t.tags()), set(['foo', 'bar']))
-        eq_(set(t.items()), set(['a', 'b', 'c']))
-        t.empty()
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
-
-def tag_query_test():
-    def func(t):
-        t.tag('foo', 'a', 'b', 'c')
-        _, items = t.query(Tag("foo"))
-        eq_(set(items), set(['a', 'b', 'c']))
-        t.empty()
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
-
-def simple_remove_test():
-    def func(t):
-        t.tag('foo', 'a')
-        t.tag('bar', 'b', 'c')
-        eq_(set(t.tags()), set(['foo', 'bar']))
-        eq_(set(t.items()), set(['a', 'b', 'c']))
-        t.untag('bar', 'b')
-        eq_(set(t.tags()), set(['foo', 'bar']))
-        _, items = t.query(Tag('bar'))
-        eq_(set(items), set(['c']))
-        t.untag('bar', 'c')
-        eq_(set(t.tags()), set(['foo']))
-        _, items = t.query(Tag('bar'))
-        eq_(set(items), set([]))
-        t.empty()
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
-
-def remove_item_test():
-    def func(t):
-        t.tag('foo', 'a')
-        t.tag('bar', 'a')
-        t.tag('baz', 'a')
-        eq_(len(t.tags()), 3)
-        eq_(len(t.items()), 1)
-        eq_(set(t.remove('a')), set(['a']))
-        eq_(len(t.tags()), 0)
-        eq_(len(t.items()), 0)
-        t.empty()
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
-
-def find_test():
-    def func(t):
-        t.tag('foo', 'a', 'b')
-        results = t.find(Tag('foo'))
-        eq_(results, set(['a', 'b']))
-        t.empty()
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
-
-def and_query_test():
-    def func(t):
-        t.tag('foo', 'a', 'b')
-        t.tag('bar', 'a', 'c')
-        _, items = t.query(And('foo', 'bar'))
-        eq_(set(items), set(['a']))
-        t.empty()
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
-
-def or_query_test():
-    def func(t):
-        t.tag('foo', 'a', 'b')
-        t.tag('bar', 'a', 'c')
-        _, items = t.query(Or('foo', 'bar'))
-        eq_(set(items), set(['a', 'b', 'c']))
-        t.empty()
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
-
-def not_query_test():
-    def func(t):
-        t.tag('foo', 'a', 'b')
-        t.tag('bar', 'a', 'c')
-        _, items = t.query(Not('foo'))
-        eq_(set(items), set(['c']))
-        t.empty()
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
-
-def invalid_type_in_query_test():
-    @raises(TypeError)
-    def func(t):
-        t.query(Tag("foo") & 5)
-
-    for t in [MemoryTaxon, TestRedisTaxon]:
-        yield func, t()
-
+    def teardown(self):
+        super(TestRedisBasics, self).teardown()
+        self.t.backend.redis.flushdb()

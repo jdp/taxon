@@ -39,19 +39,19 @@ class RedisBackend(Backend):
     def tag_items(self, tag, *items):
         items = list(set(self.encode(item) for item in items) - self._r.smembers(self.tag_key(tag)))
         if len(items) == 0:
-            raise ValueError("either no items provided or all exist in tag")
+            return []
         with self._r.pipeline() as pipe:
             pipe.zincrby(self.tags_key, tag, len(items))
             pipe.sadd(self.tag_key(tag), *items)
             for item in items:
                 pipe.zincrby(self.items_key, item, 1)
             pipe.execute()
-        return items
+        return map(self.decode, items)
 
     def untag_items(self, tag, *items):
         items = list(set(self.encode(item) for item in items) & self._r.smembers(self.tag_key(tag)))
         if len(items) == 0:
-            raise ValueError("either no items provided or none exist in tag")
+            return []
         with self._r.pipeline() as pipe:
             pipe.zincrby(self.tags_key, tag, -len(items))
             pipe.srem(self.tag_key(tag), *items)
@@ -59,12 +59,12 @@ class RedisBackend(Backend):
                 pipe.zincrby(self.items_key, item, -1)
             pipe.execute()
         self._clear_cache()
-        return items
+        return map(self.decode, items)
 
     def remove_items(self, *items):
-        if not len(items):
-            return ValueError("must remove at least 1 item")
         removed = []
+        if not len(items):
+            return removed
         for item in imap(self.encode, items):
             score = self._r.zscore(self.items_key, item)
             if not score:

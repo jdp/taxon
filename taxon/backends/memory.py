@@ -15,20 +15,20 @@ class MemoryBackend(Backend):
             self.tagged[tag] = set()
         new_items = set(items) - self.tagged[tag]
         if len(new_items) == 0:
-            raise RuntimeError
+            return []
         self.tags[tag] += len(new_items)
         self.tagged[tag].update(set(new_items))
         self.items += Counter(new_items)
-        return new_items
+        return list(new_items)
 
     def untag_items(self, tag, *items):
         old_items = set(items) & self.tagged[tag]
         if len(old_items) == 0:
-            raise RuntimeError
+            return []
         self.tags[tag] -= len(old_items)
         self.tagged[tag] -= set(old_items)
         self.items -= Counter(old_items)
-        return old_items
+        return list(old_items)
 
     def remove_items(self, *items):
         removed = []
