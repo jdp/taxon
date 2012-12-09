@@ -1,5 +1,8 @@
 import operator
-from collections import Counter
+try:
+    from collections import Counter
+except ImportError:
+    from ._counter import Counter
 
 from .backend import Backend
 from ..query import Query
